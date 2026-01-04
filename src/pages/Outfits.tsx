@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Star, LayoutGrid } from 'lucide-react';
+import { Plus, Search, Star, LayoutGrid, AlertCircle } from 'lucide-react';
 import OutfitCard from '@/components/outfits/OutfitCard';
 import OutfitBuilder from '@/components/outfits/OutfitBuilder';
 import {
@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Outfit {
   id: string;
@@ -28,6 +28,7 @@ interface Outfit {
 
 interface OutfitWithItems extends Outfit {
   items: ClothingItem[];
+  isComplete: boolean;
 }
 
 interface ClothingItem {
@@ -37,6 +38,13 @@ interface ClothingItem {
   category_id: string | null;
 }
 
+interface Category {
+  id: string;
+  name: string;
+  is_top: boolean;
+  is_bottom: boolean;
+}
+
 export default function Outfits() {
   const { user } = useAuth();
   const { t, language } = useLanguage();
@@ -44,6 +52,7 @@ export default function Outfits() {
 
   const [outfits, setOutfits] = useState<OutfitWithItems[]>([]);
   const [clothes, setClothes] = useState<ClothingItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showBuilder, setShowBuilder] = useState(false);
@@ -55,33 +64,49 @@ export default function Outfits() {
 
     setLoading(true);
     try {
-      // Fetch outfits with their items
-      const { data: outfitsData } = await supabase
-        .from('outfits')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      // Fetch outfits, clothes, and categories
+      const [outfitsRes, clothesRes, categoriesRes] = await Promise.all([
+        supabase
+          .from('outfits')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('clothing_items')
+          .select('id, name, image_url, category_id')
+          .eq('user_id', user.id),
+        supabase
+          .from('categories')
+          .select('id, name, is_top, is_bottom')
+          .eq('user_id', user.id),
+      ]);
 
-      const { data: clothesData } = await supabase
-        .from('clothing_items')
-        .select('id, name, image_url, category_id')
-        .eq('user_id', user.id);
+      if (clothesRes.data) setClothes(clothesRes.data);
+      if (categoriesRes.data) setCategories(categoriesRes.data);
 
-      if (clothesData) setClothes(clothesData);
-
-      if (outfitsData) {
+      if (outfitsRes.data && clothesRes.data && categoriesRes.data) {
         // Fetch outfit items for each outfit
         const outfitsWithItems = await Promise.all(
-          outfitsData.map(async (outfit) => {
+          outfitsRes.data.map(async (outfit) => {
             const { data: itemsData } = await supabase
               .from('outfit_items')
               .select('clothing_item_id')
               .eq('outfit_id', outfit.id);
 
             const itemIds = itemsData?.map((i) => i.clothing_item_id) || [];
-            const items = clothesData?.filter((c) => itemIds.includes(c.id)) || [];
+            const items = clothesRes.data?.filter((c) => itemIds.includes(c.id)) || [];
 
-            return { ...outfit, items };
+            // Check if outfit is complete (has top and bottom)
+            const hasTop = items.some((item) => {
+              const cat = categoriesRes.data?.find((c) => c.id === item.category_id);
+              return cat?.is_top;
+            });
+            const hasBottom = items.some((item) => {
+              const cat = categoriesRes.data?.find((c) => c.id === item.category_id);
+              return cat?.is_bottom;
+            });
+
+            return { ...outfit, items, isComplete: hasTop && hasBottom };
           })
         );
 
@@ -138,9 +163,14 @@ export default function Outfits() {
 
   const filteredOutfits = outfits.filter((outfit) => {
     const matchesSearch = outfit.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTab = activeTab === 'all' || (activeTab === 'favorites' && outfit.is_favorite);
+    const matchesTab = 
+      activeTab === 'all' || 
+      (activeTab === 'favorites' && outfit.is_favorite) ||
+      (activeTab === 'incomplete' && !outfit.isComplete);
     return matchesSearch && matchesTab;
   });
+
+  const incompleteCount = outfits.filter((o) => !o.isComplete).length;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -179,6 +209,12 @@ export default function Outfits() {
               <Star className="h-4 w-4" />
               {t('favorites')}
             </TabsTrigger>
+            {incompleteCount > 0 && (
+              <TabsTrigger value="incomplete" className="gap-2">
+                <AlertCircle className="h-4 w-4" />
+                {t('outfitToMake')} ({incompleteCount})
+              </TabsTrigger>
+            )}
           </TabsList>
         </Tabs>
       </div>
@@ -224,6 +260,7 @@ export default function Outfits() {
           </DialogHeader>
           <OutfitBuilder
             clothes={clothes}
+            categories={categories}
             editingOutfit={editingOutfit}
             onSuccess={handleBuilderSuccess}
             onCancel={handleBuilderClose}

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, X, Plus, Check } from 'lucide-react';
+import { Loader2, X, Plus, Check, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ClothingItem {
@@ -16,6 +16,13 @@ interface ClothingItem {
   name: string;
   image_url: string;
   category_id: string | null;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  is_top: boolean;
+  is_bottom: boolean;
 }
 
 interface Outfit {
@@ -28,6 +35,7 @@ interface Outfit {
 
 interface OutfitBuilderProps {
   clothes: ClothingItem[];
+  categories: Category[];
   editingOutfit: Outfit | null;
   onSuccess: () => void;
   onCancel: () => void;
@@ -35,6 +43,7 @@ interface OutfitBuilderProps {
 
 export default function OutfitBuilder({
   clothes,
+  categories,
   editingOutfit,
   onSuccess,
   onCancel,
@@ -51,6 +60,18 @@ export default function OutfitBuilder({
   const [tags, setTags] = useState<string[]>(editingOutfit?.tags || []);
   const [newTag, setNewTag] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Check if outfit has top and bottom
+  const selectedClothes = clothes.filter((c) => selectedItems.includes(c.id));
+  const hasTop = selectedClothes.some((item) => {
+    const cat = categories.find((c) => c.id === item.category_id);
+    return cat?.is_top;
+  });
+  const hasBottom = selectedClothes.some((item) => {
+    const cat = categories.find((c) => c.id === item.category_id);
+    return cat?.is_bottom;
+  });
+  const isComplete = hasTop && hasBottom;
 
   const toggleItem = (id: string) => {
     setSelectedItems((prev) =>
@@ -160,6 +181,31 @@ export default function OutfitBuilder({
         />
       </div>
 
+      {/* Outfit status */}
+      {selectedItems.length > 0 && (
+        <div className={cn(
+          'flex items-center gap-2 p-3 rounded-lg',
+          isComplete ? 'bg-accent/10 text-accent' : 'bg-destructive/10 text-destructive'
+        )}>
+          {isComplete ? (
+            <Check className="h-4 w-4" />
+          ) : (
+            <AlertCircle className="h-4 w-4" />
+          )}
+          <span className="text-sm font-medium">
+            {isComplete ? t('completeOutfit') : t('needsTopAndBottom')}
+          </span>
+          <div className="ml-auto flex gap-2">
+            <Badge variant={hasTop ? 'default' : 'secondary'}>
+              {language === 'es' ? 'Top' : 'Top'} {hasTop ? '✓' : '✗'}
+            </Badge>
+            <Badge variant={hasBottom ? 'default' : 'secondary'}>
+              {language === 'es' ? 'Bottom' : 'Bottom'} {hasBottom ? '✓' : '✗'}
+            </Badge>
+          </div>
+        </div>
+      )}
+
       {/* Select Items */}
       <div className="space-y-2">
         <Label>{t('selectItems')} *</Label>
@@ -172,6 +218,7 @@ export default function OutfitBuilder({
             <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
               {clothes.map((item) => {
                 const isSelected = selectedItems.includes(item.id);
+                const category = categories.find((c) => c.id === item.category_id);
                 return (
                   <button
                     key={item.id}
@@ -194,6 +241,13 @@ export default function OutfitBuilder({
                         <div className="h-6 w-6 rounded-full bg-accent flex items-center justify-center">
                           <Check className="h-4 w-4 text-accent-foreground" />
                         </div>
+                      </div>
+                    )}
+                    {/* Show top/bottom indicator */}
+                    {category && (category.is_top || category.is_bottom) && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-background/80 text-[10px] text-center py-0.5">
+                        {category.is_top && 'Top'}
+                        {category.is_bottom && 'Bottom'}
                       </div>
                     )}
                   </button>

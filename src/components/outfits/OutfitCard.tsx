@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, Pencil, Trash2, Star } from 'lucide-react';
+import { MoreVertical, Pencil, Trash2, Star, AlertCircle } from 'lucide-react';
 
 interface ClothingItem {
   id: string;
@@ -23,6 +23,7 @@ interface Outfit {
   is_favorite: boolean;
   tags: string[] | null;
   items: ClothingItem[];
+  isComplete: boolean;
 }
 
 interface OutfitCardProps {
@@ -38,7 +39,7 @@ export default function OutfitCard({
   onEdit,
   onDelete,
 }: OutfitCardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   return (
     <Card className="group overflow-hidden card-elevated">
@@ -52,7 +53,7 @@ export default function OutfitCard({
           />
         ) : outfit.items.length > 0 ? (
           <div className="grid h-full w-full grid-cols-2 gap-0.5 p-0.5">
-            {outfit.items.slice(0, 4).map((item, index) => (
+            {outfit.items.slice(0, 4).map((item) => (
               <div
                 key={item.id}
                 className="overflow-hidden bg-background"
@@ -73,6 +74,17 @@ export default function OutfitCard({
           <div className="flex h-full items-center justify-center text-muted-foreground">
             No items
           </div>
+        )}
+
+        {/* Incomplete badge */}
+        {!outfit.isComplete && (
+          <Badge 
+            variant="destructive" 
+            className="absolute left-2 bottom-2 gap-1"
+          >
+            <AlertCircle className="h-3 w-3" />
+            {t('outfitToMake')}
+          </Badge>
         )}
 
         {/* Favorite button */}

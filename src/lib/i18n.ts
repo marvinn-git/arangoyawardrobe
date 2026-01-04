@@ -35,7 +35,7 @@ export const translations = {
     // Clothing form
     clothingName: "Name",
     category: "Category",
-    selectCategory: "Select category",
+    selectCategory: "Select or type category",
     createCategory: "Create category",
     size: "Size",
     sizeType: "Size Type",
@@ -43,8 +43,11 @@ export const translations = {
     numericSize: "Numeric",
     color: "Color",
     brand: "Brand",
+    selectBrand: "Select or type brand",
     notes: "Notes",
     isAccessory: "This is an accessory",
+    isTop: "This is a top (shirt, sweater...)",
+    isBottom: "This is a bottom (pants, shorts...)",
     clothingPhoto: "Clothing Photo",
     wearingPhoto: "Photo Wearing It (Optional)",
     uploadPhoto: "Upload Photo",
@@ -65,16 +68,23 @@ export const translations = {
     markFavorite: "Mark as favorite",
     tags: "Tags",
     addTag: "Add tag",
+    outfitToMake: "Outfit to make",
+    needsTopAndBottom: "Needs top and bottom",
+    completeOutfit: "Complete outfit",
     
     // Profile
     myProfile: "My Profile",
     height: "Height (cm)",
     weight: "Weight (kg)",
     stylePreferences: "Style Preferences",
+    styleTagsRequired: "Select 5 style tags",
+    styleTagsCount: "tags selected",
+    additionalNotes: "Additional notes (optional)",
     preferredLanguage: "Preferred Language",
     english: "English",
     spanish: "Spanish",
     updateProfile: "Update Profile",
+    selectStyleTags: "Select exactly 5 style tags that describe your style",
     
     // Common
     loading: "Loading...",
@@ -84,6 +94,9 @@ export const translations = {
     optional: "Optional",
     search: "Search",
     filter: "Filter",
+    typeToSearch: "Type to search...",
+    noResults: "No results",
+    createNew: "Create new",
     
     // Messages
     loginSuccess: "Welcome back!",
@@ -96,6 +109,8 @@ export const translations = {
     outfitUpdated: "Outfit updated!",
     outfitDeleted: "Outfit deleted!",
     categoryCreated: "Category created!",
+    brandCreated: "Brand created!",
+    needTopAndBottom: "Outfit needs at least one top and one bottom item",
   },
   es: {
     // Auth
@@ -131,7 +146,7 @@ export const translations = {
     // Clothing form
     clothingName: "Nombre",
     category: "Categoría",
-    selectCategory: "Seleccionar categoría",
+    selectCategory: "Selecciona o escribe categoría",
     createCategory: "Crear categoría",
     size: "Talla",
     sizeType: "Tipo de Talla",
@@ -139,8 +154,11 @@ export const translations = {
     numericSize: "Numérico",
     color: "Color",
     brand: "Marca",
+    selectBrand: "Selecciona o escribe marca",
     notes: "Notas",
     isAccessory: "Es un accesorio",
+    isTop: "Es parte superior (camiseta, jersey...)",
+    isBottom: "Es parte inferior (pantalones, shorts...)",
     clothingPhoto: "Foto de la Prenda",
     wearingPhoto: "Foto Puesta (Opcional)",
     uploadPhoto: "Subir Foto",
@@ -161,16 +179,23 @@ export const translations = {
     markFavorite: "Marcar como favorito",
     tags: "Etiquetas",
     addTag: "Añadir etiqueta",
+    outfitToMake: "Outfit por completar",
+    needsTopAndBottom: "Necesita top y bottom",
+    completeOutfit: "Outfit completo",
     
     // Profile
     myProfile: "Mi Perfil",
     height: "Altura (cm)",
     weight: "Peso (kg)",
     stylePreferences: "Preferencias de Estilo",
+    styleTagsRequired: "Selecciona 5 etiquetas de estilo",
+    styleTagsCount: "etiquetas seleccionadas",
+    additionalNotes: "Notas adicionales (opcional)",
     preferredLanguage: "Idioma Preferido",
     english: "Inglés",
     spanish: "Español",
     updateProfile: "Actualizar Perfil",
+    selectStyleTags: "Selecciona exactamente 5 etiquetas que describan tu estilo",
     
     // Common
     loading: "Cargando...",
@@ -180,6 +205,9 @@ export const translations = {
     optional: "Opcional",
     search: "Buscar",
     filter: "Filtrar",
+    typeToSearch: "Escribe para buscar...",
+    noResults: "Sin resultados",
+    createNew: "Crear nuevo",
     
     // Messages
     loginSuccess: "¡Bienvenido de nuevo!",
@@ -192,6 +220,8 @@ export const translations = {
     outfitUpdated: "¡Outfit actualizado!",
     outfitDeleted: "¡Outfit eliminado!",
     categoryCreated: "¡Categoría creada!",
+    brandCreated: "¡Marca creada!",
+    needTopAndBottom: "El outfit necesita al menos una prenda superior y una inferior",
   },
 } as const;
 

@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Filter, Shirt } from 'lucide-react';
+import { Plus, Search, Shirt, Star } from 'lucide-react';
 import ClothingCard from '@/components/wardrobe/ClothingCard';
 import ClothingForm from '@/components/wardrobe/ClothingForm';
 import CategoryFilter from '@/components/wardrobe/CategoryFilter';
@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface ClothingItem {
   id: string;
@@ -28,6 +29,7 @@ interface ClothingItem {
   image_url: string;
   wearing_image_url: string | null;
   is_accessory: boolean;
+  is_favorite: boolean;
   created_at: string;
 }
 
@@ -35,6 +37,8 @@ interface Category {
   id: string;
   name: string;
   name_es: string | null;
+  is_top: boolean;
+  is_bottom: boolean;
 }
 
 export default function Wardrobe() {
@@ -49,6 +53,7 @@ export default function Wardrobe() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<ClothingItem | null>(null);
+  const [activeTab, setActiveTab] = useState('all');
 
   const fetchData = async () => {
     if (!user) return;
@@ -86,7 +91,8 @@ export default function Wardrobe() {
       item.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.color?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = !selectedCategory || item.category_id === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesTab = activeTab === 'all' || (activeTab === 'favorites' && item.is_favorite);
+    return matchesSearch && matchesCategory && matchesTab;
   });
 
   const handleDelete = async (id: string) => {
@@ -96,6 +102,19 @@ export default function Wardrobe() {
     } else {
       toast({ title: t('success'), description: t('clothingDeleted') });
       fetchData();
+    }
+  };
+
+  const handleToggleFavorite = async (id: string, currentValue: boolean) => {
+    const { error } = await supabase
+      .from('clothing_items')
+      .update({ is_favorite: !currentValue })
+      .eq('id', id);
+
+    if (!error) {
+      setClothes((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, is_favorite: !currentValue } : c))
+      );
     }
   };
 
@@ -130,23 +149,37 @@ export default function Wardrobe() {
         </Button>
       </div>
 
-      {/* Search and Filter */}
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder={t('search')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+      {/* Search, Filter, and Tabs */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={t('search')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <CategoryFilter
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onSelect={setSelectedCategory}
+            language={language}
           />
         </div>
-        <CategoryFilter
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onSelect={setSelectedCategory}
-          language={language}
-        />
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="all" className="gap-2">
+              <Shirt className="h-4 w-4" />
+              {t('allItems')}
+            </TabsTrigger>
+            <TabsTrigger value="favorites" className="gap-2">
+              <Star className="h-4 w-4" />
+              {t('favorites')}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Grid */}
@@ -176,6 +209,7 @@ export default function Wardrobe() {
               language={language}
               onEdit={() => handleEdit(item)}
               onDelete={() => handleDelete(item.id)}
+              onToggleFavorite={() => handleToggleFavorite(item.id, item.is_favorite)}
             />
           ))}
         </div>

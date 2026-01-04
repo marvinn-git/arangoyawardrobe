@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Combobox } from '@/components/ui/combobox';
 import {
   Select,
   SelectContent,
@@ -15,12 +16,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Upload, Plus, X, Loader2 } from 'lucide-react';
+import { Upload, X, Loader2 } from 'lucide-react';
 
 interface Category {
   id: string;
   name: string;
   name_es: string | null;
+  is_top?: boolean;
+  is_bottom?: boolean;
+}
+
+interface Brand {
+  id: string;
+  name: string;
 }
 
 interface ClothingItem {
@@ -71,8 +79,21 @@ export default function ClothingForm({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [wearingImageFile, setWearingImageFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [showNewCategory, setShowNewCategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
+  const [brands, setBrands] = useState<Brand[]>([]);
+
+  // Fetch brands on mount
+  useEffect(() => {
+    const fetchBrands = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('brands')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name');
+      if (data) setBrands(data);
+    };
+    fetchBrands();
+  }, [user]);
 
   const uploadImage = async (file: File, path: string): Promise<string | null> => {
     const { data, error } = await supabase.storage
@@ -104,12 +125,12 @@ export default function ClothingForm({
     }
   };
 
-  const handleCreateCategory = async () => {
-    if (!user || !newCategoryName.trim()) return;
+  const handleCreateCategory = async (categoryName: string) => {
+    if (!user || !categoryName.trim()) return;
 
     const { data, error } = await supabase
       .from('categories')
-      .insert({ user_id: user.id, name: newCategoryName.trim() })
+      .insert({ user_id: user.id, name: categoryName.trim() })
       .select()
       .single();
 
@@ -118,9 +139,30 @@ export default function ClothingForm({
     } else {
       toast({ title: t('success'), description: t('categoryCreated') });
       setCategoryId(data.id);
-      setNewCategoryName('');
-      setShowNewCategory(false);
       onCategoryCreated();
+    }
+  };
+
+  const handleCreateBrand = async (brandName: string) => {
+    if (!user || !brandName.trim()) return;
+
+    const { data, error } = await supabase
+      .from('brands')
+      .insert({ user_id: user.id, name: brandName.trim() })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        // Already exists, just select it
+        setBrand(brandName.trim());
+      } else {
+        toast({ title: t('error'), description: error.message, variant: 'destructive' });
+      }
+    } else {
+      toast({ title: t('success'), description: t('brandCreated') });
+      setBrands([...brands, data]);
+      setBrand(brandName.trim());
     }
   };
 
@@ -189,6 +231,16 @@ export default function ClothingForm({
   };
 
   const letterSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+
+  const categoryOptions = categories.map((cat) => ({
+    value: cat.id,
+    label: language === 'es' && cat.name_es ? cat.name_es : cat.name,
+  }));
+
+  const brandOptions = brands.map((b) => ({
+    value: b.name,
+    label: b.name,
+  }));
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -285,42 +337,19 @@ export default function ClothingForm({
         />
       </div>
 
-      {/* Category */}
+      {/* Category - Combobox */}
       <div className="space-y-2">
         <Label>{t('category')}</Label>
-        {showNewCategory ? (
-          <div className="flex gap-2">
-            <Input
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              placeholder={language === 'es' ? 'Nueva categoría' : 'New category'}
-            />
-            <Button type="button" size="sm" onClick={handleCreateCategory}>
-              <Plus className="h-4 w-4" />
-            </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setShowNewCategory(false)}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : (
-          <div className="flex gap-2">
-            <Select value={categoryId} onValueChange={setCategoryId}>
-              <SelectTrigger className="flex-1">
-                <SelectValue placeholder={t('selectCategory')} />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {language === 'es' && cat.name_es ? cat.name_es : cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button type="button" variant="outline" size="icon" onClick={() => setShowNewCategory(true)}>
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-        )}
+        <Combobox
+          options={categoryOptions}
+          value={categoryId}
+          onChange={setCategoryId}
+          onCreateNew={handleCreateCategory}
+          placeholder={t('selectCategory')}
+          searchPlaceholder={t('typeToSearch')}
+          emptyText={t('noResults')}
+          createNewText={t('createNew')}
+        />
       </div>
 
       {/* Size */}
@@ -374,10 +403,15 @@ export default function ClothingForm({
         </div>
         <div className="space-y-2">
           <Label>{t('brand')}</Label>
-          <Input
+          <Combobox
+            options={brandOptions}
             value={brand}
-            onChange={(e) => setBrand(e.target.value)}
-            placeholder="Nike, Zara..."
+            onChange={setBrand}
+            onCreateNew={handleCreateBrand}
+            placeholder={t('selectBrand')}
+            searchPlaceholder={t('typeToSearch')}
+            emptyText={t('noResults')}
+            createNewText={t('createNew')}
           />
         </div>
       </div>
