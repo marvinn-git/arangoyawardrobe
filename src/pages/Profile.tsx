@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -15,7 +16,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { User, Loader2 } from 'lucide-react';
+import { User, Loader2, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Profile {
   id: string;
@@ -25,6 +27,12 @@ interface Profile {
   avatar_url: string | null;
   style_preferences: string | null;
   preferred_language: 'en' | 'es';
+}
+
+interface StyleTag {
+  id: string;
+  name: string;
+  name_es: string | null;
 }
 
 export default function Profile() {
@@ -41,18 +49,34 @@ export default function Profile() {
   const [weightKg, setWeightKg] = useState('');
   const [stylePreferences, setStylePreferences] = useState('');
   const [preferredLanguage, setPreferredLanguage] = useState<'en' | 'es'>('en');
+  
+  // Style tags
+  const [allStyleTags, setAllStyleTags] = useState<StyleTag[]>([]);
+  const [selectedStyleTagIds, setSelectedStyleTagIds] = useState<string[]>([]);
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchData = async () => {
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
+      // Fetch profile, style tags, and user's selected tags in parallel
+      const [profileRes, tagsRes, userTagsRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        supabase
+          .from('style_tags')
+          .select('*')
+          .order('name'),
+        supabase
+          .from('user_style_tags')
+          .select('style_tag_id')
+          .eq('user_id', user.id),
+      ]);
 
-      if (data) {
+      if (profileRes.data) {
+        const data = profileRes.data;
         setProfile(data as Profile);
         setName(data.name || '');
         setHeightCm(data.height_cm?.toString() || '');
@@ -61,20 +85,51 @@ export default function Profile() {
         setPreferredLanguage((data.preferred_language as 'en' | 'es') || 'en');
       }
 
+      if (tagsRes.data) {
+        setAllStyleTags(tagsRes.data);
+      }
+
+      if (userTagsRes.data) {
+        setSelectedStyleTagIds(userTagsRes.data.map((t) => t.style_tag_id));
+      }
+
       setLoading(false);
     };
 
-    fetchProfile();
+    fetchData();
   }, [user]);
+
+  const toggleStyleTag = (tagId: string) => {
+    setSelectedStyleTagIds((prev) => {
+      if (prev.includes(tagId)) {
+        return prev.filter((id) => id !== tagId);
+      }
+      if (prev.length >= 5) {
+        return prev; // Max 5 tags
+      }
+      return [...prev, tagId];
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
+    // Validate 5 style tags
+    if (selectedStyleTagIds.length !== 5) {
+      toast({ 
+        title: t('error'), 
+        description: t('selectStyleTags'), 
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     setSaving(true);
 
     try {
-      const { error } = await supabase
+      // Update profile
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({
           name: name.trim(),
@@ -85,7 +140,18 @@ export default function Profile() {
         })
         .eq('user_id', user.id);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
+
+      // Update style tags - delete old and insert new
+      await supabase.from('user_style_tags').delete().eq('user_id', user.id);
+      
+      const tagsToInsert = selectedStyleTagIds.map((tagId) => ({
+        user_id: user.id,
+        style_tag_id: tagId,
+      }));
+
+      const { error: tagsError } = await supabase.from('user_style_tags').insert(tagsToInsert);
+      if (tagsError) throw tagsError;
 
       // Update app language
       setLanguage(preferredLanguage);
@@ -157,19 +223,56 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Style Preferences */}
+            {/* Style Tags - Required */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>{t('styleTagsRequired')} *</Label>
+                <Badge variant={selectedStyleTagIds.length === 5 ? "default" : "secondary"}>
+                  {selectedStyleTagIds.length}/5 {t('styleTagsCount')}
+                </Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {t('selectStyleTags')}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {allStyleTags.map((tag) => {
+                  const isSelected = selectedStyleTagIds.includes(tag.id);
+                  const isDisabled = !isSelected && selectedStyleTagIds.length >= 5;
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleStyleTag(tag.id)}
+                      disabled={isDisabled}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all',
+                        isSelected
+                          ? 'bg-accent text-accent-foreground'
+                          : 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+                        isDisabled && 'opacity-50 cursor-not-allowed'
+                      )}
+                    >
+                      {isSelected && <Check className="h-3 w-3" />}
+                      {language === 'es' && tag.name_es ? tag.name_es : tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Additional Notes - Optional */}
             <div className="space-y-2">
-              <Label htmlFor="stylePreferences">{t('stylePreferences')}</Label>
+              <Label htmlFor="stylePreferences">{t('additionalNotes')}</Label>
               <Textarea
                 id="stylePreferences"
                 value={stylePreferences}
                 onChange={(e) => setStylePreferences(e.target.value)}
                 placeholder={
                   language === 'es'
-                    ? 'Cuéntanos sobre tu estilo: casual, elegante, minimalista...'
-                    : 'Tell us about your style: casual, elegant, minimalist...'
+                    ? 'Notas adicionales sobre tu estilo...'
+                    : 'Additional notes about your style...'
                 }
-                rows={3}
+                rows={2}
               />
             </div>
 

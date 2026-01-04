@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { MoreVertical, Pencil, Trash2, Star } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface ClothingItem {
@@ -20,6 +20,7 @@ interface ClothingItem {
   brand: string | null;
   image_url: string;
   is_accessory: boolean;
+  is_favorite?: boolean;
 }
 
 interface Category {
@@ -34,6 +35,7 @@ interface ClothingCardProps {
   language: Language;
   onEdit: () => void;
   onDelete: () => void;
+  onToggleFavorite: () => void;
 }
 
 export default function ClothingCard({
@@ -42,6 +44,7 @@ export default function ClothingCard({
   language,
   onEdit,
   onDelete,
+  onToggleFavorite,
 }: ClothingCardProps) {
   const { t } = useLanguage();
   const categoryName = category
@@ -56,6 +59,23 @@ export default function ClothingCard({
           alt={item.name}
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
+        
+        {/* Favorite button */}
+        <Button
+          variant="secondary"
+          size="icon"
+          className="absolute left-2 top-2 h-8 w-8"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite();
+          }}
+        >
+          <Star
+            className={`h-4 w-4 ${
+              item.is_favorite ? 'fill-accent text-accent' : ''
+            }`}
+          />
+        </Button>
         
         {/* Overlay menu */}
         <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
@@ -80,7 +100,7 @@ export default function ClothingCard({
 
         {/* Accessory badge */}
         {item.is_accessory && (
-          <Badge className="absolute left-2 top-2" variant="secondary">
+          <Badge className="absolute left-2 bottom-2" variant="secondary">
             {language === 'es' ? 'Accesorio' : 'Accessory'}
           </Badge>
         )}

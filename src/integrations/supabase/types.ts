@@ -14,11 +14,34 @@ export type Database = {
   }
   public: {
     Tables: {
+      brands: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
           icon: string | null
           id: string
+          is_bottom: boolean | null
+          is_top: boolean | null
           name: string
           name_es: string | null
           user_id: string
@@ -27,6 +50,8 @@ export type Database = {
           created_at?: string
           icon?: string | null
           id?: string
+          is_bottom?: boolean | null
+          is_top?: boolean | null
           name: string
           name_es?: string | null
           user_id: string
@@ -35,6 +60,8 @@ export type Database = {
           created_at?: string
           icon?: string | null
           id?: string
+          is_bottom?: boolean | null
+          is_top?: boolean | null
           name?: string
           name_es?: string | null
           user_id?: string
@@ -50,6 +77,7 @@ export type Database = {
           id: string
           image_url: string
           is_accessory: boolean | null
+          is_favorite: boolean | null
           name: string
           notes: string | null
           size: string | null
@@ -66,6 +94,7 @@ export type Database = {
           id?: string
           image_url: string
           is_accessory?: boolean | null
+          is_favorite?: boolean | null
           name: string
           notes?: string | null
           size?: string | null
@@ -82,6 +111,7 @@ export type Database = {
           id?: string
           image_url?: string
           is_accessory?: boolean | null
+          is_favorite?: boolean | null
           name?: string
           notes?: string | null
           size?: string | null
@@ -210,6 +240,53 @@ export type Database = {
           weight_kg?: number | null
         }
         Relationships: []
+      }
+      style_tags: {
+        Row: {
+          id: string
+          name: string
+          name_es: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          name_es?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          name_es?: string | null
+        }
+        Relationships: []
+      }
+      user_style_tags: {
+        Row: {
+          created_at: string
+          id: string
+          style_tag_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          style_tag_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          style_tag_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_style_tags_style_tag_id_fkey"
+            columns: ["style_tag_id"]
+            isOneToOne: false
+            referencedRelation: "style_tags"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
