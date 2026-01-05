@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { SearchableChipSelector } from '@/components/ui/searchable-chip-selector';
 import { Combobox } from '@/components/ui/combobox';
 import {
   Select,
@@ -67,7 +68,9 @@ export default function ClothingForm({
   const wearingFileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState(editingItem?.name || '');
-  const [categoryId, setCategoryId] = useState(editingItem?.category_id || '');
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
+    editingItem?.category_id ? [editingItem.category_id] : []
+  );
   const [size, setSize] = useState(editingItem?.size || '');
   const [sizeType, setSizeType] = useState(editingItem?.size_type || 'letter');
   const [color, setColor] = useState(editingItem?.color || '');
@@ -125,6 +128,16 @@ export default function ClothingForm({
     }
   };
 
+  const handleToggleCategory = (categoryId: string) => {
+    setSelectedCategoryIds((prev) => {
+      if (prev.includes(categoryId)) {
+        return prev.filter((id) => id !== categoryId);
+      }
+      // Only allow one category for now
+      return [categoryId];
+    });
+  };
+
   const handleCreateCategory = async (categoryName: string) => {
     if (!user || !categoryName.trim()) return;
 
@@ -138,7 +151,7 @@ export default function ClothingForm({
       toast({ title: t('error'), description: error.message, variant: 'destructive' });
     } else {
       toast({ title: t('success'), description: t('categoryCreated') });
-      setCategoryId(data.id);
+      setSelectedCategoryIds([data.id]);
       onCategoryCreated();
     }
   };
@@ -197,7 +210,7 @@ export default function ClothingForm({
       const itemData = {
         user_id: user.id,
         name: name.trim(),
-        category_id: categoryId || null,
+        category_id: selectedCategoryIds[0] || null,
         size: size || null,
         size_type: sizeType,
         color: color || null,
@@ -231,11 +244,6 @@ export default function ClothingForm({
   };
 
   const letterSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
-
-  const categoryOptions = categories.map((cat) => ({
-    value: cat.id,
-    label: language === 'es' && cat.name_es ? cat.name_es : cat.name,
-  }));
 
   const brandOptions = brands.map((b) => ({
     value: b.name,
@@ -337,18 +345,17 @@ export default function ClothingForm({
         />
       </div>
 
-      {/* Category - Combobox */}
+      {/* Category - Searchable Chip Selector */}
       <div className="space-y-2">
         <Label>{t('category')}</Label>
-        <Combobox
-          options={categoryOptions}
-          value={categoryId}
-          onChange={setCategoryId}
+        <SearchableChipSelector
+          options={categories}
+          selectedIds={selectedCategoryIds}
+          onToggle={handleToggleCategory}
           onCreateNew={handleCreateCategory}
+          maxSelected={1}
           placeholder={t('selectCategory')}
-          searchPlaceholder={t('typeToSearch')}
-          emptyText={t('noResults')}
-          createNewText={t('createNew')}
+          showCreateNew={true}
         />
       </div>
 

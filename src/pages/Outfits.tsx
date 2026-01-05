@@ -5,9 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Star, LayoutGrid, AlertCircle } from 'lucide-react';
+import { Plus, Search, Star, LayoutGrid, AlertCircle, Wand2, ArrowUpCircle } from 'lucide-react';
 import OutfitCard from '@/components/outfits/OutfitCard';
 import OutfitBuilder from '@/components/outfits/OutfitBuilder';
+import { UnderConstructionDialog } from '@/components/ui/under-construction-dialog';
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,10 @@ export default function Outfits() {
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingOutfit, setEditingOutfit] = useState<OutfitWithItems | null>(null);
   const [activeTab, setActiveTab] = useState('all');
+  
+  // Under construction dialogs
+  const [showAICreateDialog, setShowAICreateDialog] = useState(false);
+  const [showAIUpgradeDialog, setShowAIUpgradeDialog] = useState(false);
 
   const fetchData = async () => {
     if (!user) return;
@@ -182,10 +187,28 @@ export default function Outfits() {
             {outfits.length} outfits
           </p>
         </div>
-        <Button onClick={() => setShowBuilder(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          {t('createOutfit')}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setShowBuilder(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            {t('createOutfit')}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowAICreateDialog(true)} 
+            className="gap-2"
+          >
+            <Wand2 className="h-4 w-4" />
+            {t('createWithAI')}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setShowAIUpgradeDialog(true)} 
+            className="gap-2"
+          >
+            <ArrowUpCircle className="h-4 w-4" />
+            {t('upgradeWithAI')}
+          </Button>
+        </div>
       </div>
 
       {/* Search and Tabs */}
@@ -267,6 +290,18 @@ export default function Outfits() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Under Construction Dialogs */}
+      <UnderConstructionDialog
+        open={showAICreateDialog}
+        onOpenChange={setShowAICreateDialog}
+        featureName={t('createWithAI')}
+      />
+      <UnderConstructionDialog
+        open={showAIUpgradeDialog}
+        onOpenChange={setShowAIUpgradeDialog}
+        featureName={t('upgradeWithAI')}
+      />
     </div>
   );
 }
