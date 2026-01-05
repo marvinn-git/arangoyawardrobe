@@ -209,11 +209,13 @@ export type Database = {
           height_cm: number | null
           id: string
           name: string
+          onboarding_completed: boolean | null
           preferred_language: string | null
           style_preferences: string | null
           updated_at: string
           user_id: string
           weight_kg: number | null
+          year_of_birth: number | null
         }
         Insert: {
           avatar_url?: string | null
@@ -221,11 +223,13 @@ export type Database = {
           height_cm?: number | null
           id?: string
           name?: string
+          onboarding_completed?: boolean | null
           preferred_language?: string | null
           style_preferences?: string | null
           updated_at?: string
           user_id: string
           weight_kg?: number | null
+          year_of_birth?: number | null
         }
         Update: {
           avatar_url?: string | null
@@ -233,11 +237,13 @@ export type Database = {
           height_cm?: number | null
           id?: string
           name?: string
+          onboarding_completed?: boolean | null
           preferred_language?: string | null
           style_preferences?: string | null
           updated_at?: string
           user_id?: string
           weight_kg?: number | null
+          year_of_birth?: number | null
         }
         Relationships: []
       }

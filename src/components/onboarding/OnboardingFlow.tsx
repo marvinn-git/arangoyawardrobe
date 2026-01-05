@@ -1,0 +1,475 @@
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { SearchableChipSelector } from '@/components/ui/searchable-chip-selector';
+import { useToast } from '@/hooks/use-toast';
+import { Shirt, User, Sparkles, ChevronRight, ChevronLeft, Check, Wand2, ArrowUpCircle, SkipForward } from 'lucide-react';
+
+interface StyleTag {
+  id: string;
+  name: string;
+  name_es: string | null;
+}
+
+interface OnboardingFlowProps {
+  onComplete: () => void;
+}
+
+type Step = 'welcome' | 'profile' | 'style' | 'clothing-intro' | 'ai-intro' | 'complete';
+
+export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
+  const { user } = useAuth();
+  const { t, language, setLanguage } = useLanguage();
+  const { toast } = useToast();
+
+  const [step, setStep] = useState<Step>('welcome');
+  const [saving, setSaving] = useState(false);
+
+  // Profile data
+  const [name, setName] = useState('');
+  const [yearOfBirth, setYearOfBirth] = useState('');
+  const [heightCm, setHeightCm] = useState('');
+  const [weightKg, setWeightKg] = useState('');
+
+  // Style tags
+  const [allStyleTags, setAllStyleTags] = useState<StyleTag[]>([]);
+  const [selectedStyleTagIds, setSelectedStyleTagIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchStyleTags = async () => {
+      const { data } = await supabase
+        .from('style_tags')
+        .select('*')
+        .order('name');
+      if (data) setAllStyleTags(data);
+    };
+    fetchStyleTags();
+  }, []);
+
+  const steps: Step[] = ['welcome', 'profile', 'style', 'clothing-intro', 'ai-intro', 'complete'];
+  const currentIndex = steps.indexOf(step);
+  const progress = ((currentIndex) / (steps.length - 1)) * 100;
+
+  const toggleStyleTag = (tagId: string) => {
+    setSelectedStyleTagIds((prev) => {
+      if (prev.includes(tagId)) {
+        return prev.filter((id) => id !== tagId);
+      }
+      if (prev.length >= 5) return prev;
+      return [...prev, tagId];
+    });
+  };
+
+  const handleCreateStyleTag = async (name: string) => {
+    // For now, we don't allow creating new style tags during onboarding
+    // They can only select from existing ones
+    toast({
+      title: language === 'es' ? 'Selecciona de las opciones disponibles' : 'Select from available options',
+      description: language === 'es' ? 'Podrás personalizar más tarde' : 'You can customize later',
+    });
+  };
+
+  const handleNext = async () => {
+    if (step === 'profile') {
+      if (!name.trim() || !yearOfBirth) {
+        toast({
+          title: t('error'),
+          description: language === 'es' ? 'Nombre y año de nacimiento son requeridos' : 'Name and year of birth are required',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const year = parseInt(yearOfBirth);
+      if (year < 1900 || year > new Date().getFullYear() - 13) {
+        toast({
+          title: t('error'),
+          description: language === 'es' ? 'Año de nacimiento no válido' : 'Invalid year of birth',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    if (step === 'style') {
+      if (selectedStyleTagIds.length !== 5) {
+        toast({
+          title: t('error'),
+          description: t('selectStyleTags'),
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    const nextIndex = currentIndex + 1;
+    if (nextIndex < steps.length) {
+      setStep(steps[nextIndex]);
+    }
+  };
+
+  const handleBack = () => {
+    const prevIndex = currentIndex - 1;
+    if (prevIndex >= 0) {
+      setStep(steps[prevIndex]);
+    }
+  };
+
+  const handleComplete = async () => {
+    if (!user) return;
+    setSaving(true);
+
+    try {
+      // Save profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          name: name.trim(),
+          year_of_birth: parseInt(yearOfBirth),
+          height_cm: heightCm ? parseFloat(heightCm) : null,
+          weight_kg: weightKg ? parseFloat(weightKg) : null,
+          onboarding_completed: true,
+        })
+        .eq('user_id', user.id);
+
+      if (profileError) throw profileError;
+
+      // Save style tags
+      await supabase.from('user_style_tags').delete().eq('user_id', user.id);
+      
+      const tagsToInsert = selectedStyleTagIds.map((tagId) => ({
+        user_id: user.id,
+        style_tag_id: tagId,
+      }));
+
+      const { error: tagsError } = await supabase.from('user_style_tags').insert(tagsToInsert);
+      if (tagsError) throw tagsError;
+
+      toast({
+        title: t('success'),
+        description: language === 'es' ? '¡Perfil completado!' : 'Profile completed!',
+      });
+
+      onComplete();
+    } catch (error: any) {
+      toast({ title: t('error'), description: error.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSkipToEnd = async () => {
+    // Still require profile and style to be completed
+    if (step === 'clothing-intro' || step === 'ai-intro') {
+      setStep('complete');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+      {/* Progress */}
+      {step !== 'welcome' && step !== 'complete' && (
+        <div className="w-full max-w-md mb-6">
+          <Progress value={progress} className="h-2" />
+        </div>
+      )}
+
+      {/* Welcome */}
+      {step === 'welcome' && (
+        <Card className="w-full max-w-md card-elevated animate-fade-in">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary">
+              <Shirt className="h-8 w-8 text-primary-foreground" />
+            </div>
+            <CardTitle className="font-display text-2xl">
+              {language === 'es' ? '¡Bienvenido a tu Armario!' : 'Welcome to your Wardrobe!'}
+            </CardTitle>
+            <CardDescription>
+              {language === 'es' 
+                ? 'Vamos a configurar tu perfil y estilo personal' 
+                : "Let's set up your profile and personal style"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-2">
+              <Button
+                variant={language === 'en' ? 'default' : 'outline'}
+                onClick={() => setLanguage('en')}
+                className="flex-1"
+              >
+                English
+              </Button>
+              <Button
+                variant={language === 'es' ? 'default' : 'outline'}
+                onClick={() => setLanguage('es')}
+                className="flex-1"
+              >
+                Español
+              </Button>
+            </div>
+            <Button onClick={handleNext} className="w-full gap-2">
+              {language === 'es' ? 'Empezar' : 'Get Started'}
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Profile Setup */}
+      {step === 'profile' && (
+        <Card className="w-full max-w-md card-elevated animate-fade-in">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                <User className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="font-display">
+                  {language === 'es' ? 'Tu Perfil' : 'Your Profile'}
+                </CardTitle>
+                <CardDescription>
+                  {language === 'es' ? 'Cuéntanos sobre ti' : 'Tell us about yourself'}
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">{t('name')} *</Label>
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="John Doe"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="yearOfBirth">
+                {language === 'es' ? 'Año de nacimiento' : 'Year of birth'} *
+              </Label>
+              <Input
+                id="yearOfBirth"
+                type="number"
+                value={yearOfBirth}
+                onChange={(e) => setYearOfBirth(e.target.value)}
+                placeholder="2000"
+                min="1900"
+                max={new Date().getFullYear() - 13}
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="height">{t('height')} ({t('optional')})</Label>
+                <Input
+                  id="height"
+                  type="number"
+                  value={heightCm}
+                  onChange={(e) => setHeightCm(e.target.value)}
+                  placeholder="175"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="weight">{t('weight')} ({t('optional')})</Label>
+                <Input
+                  id="weight"
+                  type="number"
+                  value={weightKg}
+                  onChange={(e) => setWeightKg(e.target.value)}
+                  placeholder="70"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" onClick={handleBack} className="gap-2">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button onClick={handleNext} className="flex-1 gap-2">
+                {language === 'es' ? 'Continuar' : 'Continue'}
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Style Selection */}
+      {step === 'style' && (
+        <Card className="w-full max-w-lg card-elevated animate-fade-in">
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/10">
+                <Sparkles className="h-5 w-5 text-accent" />
+              </div>
+              <div>
+                <CardTitle className="font-display">
+                  {language === 'es' ? 'Tu Estilo' : 'Your Style'}
+                </CardTitle>
+                <CardDescription>
+                  {t('selectStyleTags')}
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <SearchableChipSelector
+              options={allStyleTags}
+              selectedIds={selectedStyleTagIds}
+              onToggle={toggleStyleTag}
+              maxSelected={5}
+              placeholder={language === 'es' ? 'Buscar estilos...' : 'Search styles...'}
+              showCreateNew={false}
+            />
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" onClick={handleBack} className="gap-2">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button 
+                onClick={handleNext} 
+                className="flex-1 gap-2"
+                disabled={selectedStyleTagIds.length !== 5}
+              >
+                {language === 'es' ? 'Continuar' : 'Continue'}
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Clothing Intro */}
+      {step === 'clothing-intro' && (
+        <Card className="w-full max-w-md card-elevated animate-fade-in">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary">
+              <Shirt className="h-8 w-8 text-foreground" />
+            </div>
+            <CardTitle className="font-display">
+              {language === 'es' ? 'Tu Armario' : 'Your Wardrobe'}
+            </CardTitle>
+            <CardDescription>
+              {language === 'es' 
+                ? 'Añade tu ropa para crear outfits. Necesitarás al menos una prenda superior (camiseta, jersey...) y una inferior (pantalón, falda...)' 
+                : "Add your clothes to create outfits. You'll need at least one top (t-shirt, sweater...) and one bottom (pants, skirt...)"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-secondary/50 rounded-lg p-4 space-y-2">
+              <p className="text-sm font-medium">
+                {language === 'es' ? 'Consejo:' : 'Tip:'}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {language === 'es' 
+                  ? 'Puedes hacer fotos de tu ropa o subirlas desde tu galería. Cuantas más prendas añadas, ¡más outfits podrás crear!' 
+                  : 'You can take photos of your clothes or upload them from your gallery. The more clothes you add, the more outfits you can create!'}
+              </p>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" onClick={handleBack} className="gap-2">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button onClick={handleNext} className="flex-1 gap-2">
+                {language === 'es' ? 'Continuar' : 'Continue'}
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button variant="ghost" onClick={handleSkipToEnd} className="w-full gap-2 text-muted-foreground">
+              <SkipForward className="h-4 w-4" />
+              {language === 'es' ? 'Saltar tutorial' : 'Skip tutorial'}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* AI Features Intro */}
+      {step === 'ai-intro' && (
+        <Card className="w-full max-w-md card-elevated animate-fade-in">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/20">
+              <Wand2 className="h-8 w-8 text-accent" />
+            </div>
+            <CardTitle className="font-display">
+              {language === 'es' ? 'IA para tus Outfits' : 'AI for your Outfits'}
+            </CardTitle>
+            <CardDescription>
+              {language === 'es' 
+                ? 'Usa inteligencia artificial para crear outfits perfectos' 
+                : 'Use artificial intelligence to create perfect outfits'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
+                <Wand2 className="h-5 w-5 text-accent mt-0.5" />
+                <div>
+                  <p className="font-medium text-sm">
+                    {language === 'es' ? 'Crear con IA' : 'Create with AI'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {language === 'es' 
+                      ? 'La IA seleccionará las mejores combinaciones de tu armario' 
+                      : 'AI will select the best combinations from your wardrobe'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50">
+                <ArrowUpCircle className="h-5 w-5 text-accent mt-0.5" />
+                <div>
+                  <p className="font-medium text-sm">
+                    {language === 'es' ? 'Mejorar Outfit' : 'Upgrade Outfit'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {language === 'es' 
+                      ? 'Recibe sugerencias de prendas que ya tienes o puedes comprar' 
+                      : 'Get suggestions for items you own or can buy'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" onClick={handleBack} className="gap-2">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button onClick={handleNext} className="flex-1 gap-2">
+                {language === 'es' ? 'Continuar' : 'Continue'}
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Complete */}
+      {step === 'complete' && (
+        <Card className="w-full max-w-md card-elevated animate-fade-in">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent">
+              <Check className="h-8 w-8 text-accent-foreground" />
+            </div>
+            <CardTitle className="font-display text-2xl">
+              {language === 'es' ? '¡Todo listo!' : 'All set!'}
+            </CardTitle>
+            <CardDescription>
+              {language === 'es' 
+                ? 'Tu perfil está configurado. ¡Empieza a crear tu armario!' 
+                : "Your profile is set up. Start building your wardrobe!"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={handleComplete} disabled={saving} className="w-full gap-2">
+              {saving ? t('loading') : (language === 'es' ? 'Ir a mi Armario' : 'Go to my Wardrobe')}
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}

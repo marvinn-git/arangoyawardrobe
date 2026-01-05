@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { SearchableChipSelector } from '@/components/ui/searchable-chip-selector';
 import {
   Select,
   SelectContent,
@@ -16,8 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { User, Loader2, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { User, Loader2 } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -27,6 +27,7 @@ interface Profile {
   avatar_url: string | null;
   style_preferences: string | null;
   preferred_language: 'en' | 'es';
+  year_of_birth: number | null;
 }
 
 interface StyleTag {
@@ -45,6 +46,7 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState('');
+  const [yearOfBirth, setYearOfBirth] = useState('');
   const [heightCm, setHeightCm] = useState('');
   const [weightKg, setWeightKg] = useState('');
   const [stylePreferences, setStylePreferences] = useState('');
@@ -79,6 +81,7 @@ export default function Profile() {
         const data = profileRes.data;
         setProfile(data as Profile);
         setName(data.name || '');
+        setYearOfBirth(data.year_of_birth?.toString() || '');
         setHeightCm(data.height_cm?.toString() || '');
         setWeightKg(data.weight_kg?.toString() || '');
         setStylePreferences(data.style_preferences || '');
@@ -111,6 +114,16 @@ export default function Profile() {
     });
   };
 
+  const handleCreateStyleTag = async (name: string) => {
+    // For now style tags are predefined, but we can add custom ones later
+    toast({
+      title: language === 'es' ? 'Etiquetas personalizadas' : 'Custom tags',
+      description: language === 'es' 
+        ? 'Las etiquetas personalizadas estarán disponibles pronto' 
+        : 'Custom tags will be available soon',
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -133,6 +146,7 @@ export default function Profile() {
         .from('profiles')
         .update({
           name: name.trim(),
+          year_of_birth: yearOfBirth ? parseInt(yearOfBirth) : null,
           height_cm: heightCm ? parseFloat(heightCm) : null,
           weight_kg: weightKg ? parseFloat(weightKg) : null,
           style_preferences: stylePreferences.trim() || null,
@@ -199,6 +213,20 @@ export default function Profile() {
               />
             </div>
 
+            {/* Year of Birth */}
+            <div className="space-y-2">
+              <Label htmlFor="yearOfBirth">
+                {language === 'es' ? 'Año de nacimiento' : 'Year of birth'}
+              </Label>
+              <Input
+                id="yearOfBirth"
+                type="number"
+                value={yearOfBirth}
+                onChange={(e) => setYearOfBirth(e.target.value)}
+                placeholder="2000"
+              />
+            </div>
+
             {/* Height & Weight */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -231,33 +259,15 @@ export default function Profile() {
                   {selectedStyleTagIds.length}/5 {t('styleTagsCount')}
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {t('selectStyleTags')}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {allStyleTags.map((tag) => {
-                  const isSelected = selectedStyleTagIds.includes(tag.id);
-                  const isDisabled = !isSelected && selectedStyleTagIds.length >= 5;
-                  return (
-                    <button
-                      key={tag.id}
-                      type="button"
-                      onClick={() => toggleStyleTag(tag.id)}
-                      disabled={isDisabled}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all',
-                        isSelected
-                          ? 'bg-accent text-accent-foreground'
-                          : 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-                        isDisabled && 'opacity-50 cursor-not-allowed'
-                      )}
-                    >
-                      {isSelected && <Check className="h-3 w-3" />}
-                      {language === 'es' && tag.name_es ? tag.name_es : tag.name}
-                    </button>
-                  );
-                })}
-              </div>
+              <SearchableChipSelector
+                options={allStyleTags}
+                selectedIds={selectedStyleTagIds}
+                onToggle={toggleStyleTag}
+                onCreateNew={handleCreateStyleTag}
+                maxSelected={5}
+                placeholder={language === 'es' ? 'Buscar estilos...' : 'Search styles...'}
+                showCreateNew={false}
+              />
             </div>
 
             {/* Additional Notes - Optional */}

@@ -59,6 +59,8 @@ export const translations = {
     // Outfits
     myOutfits: "My Outfits",
     createOutfit: "Create Outfit",
+    createWithAI: "Create with AI",
+    upgradeWithAI: "Upgrade with AI",
     noOutfits: "No outfits yet",
     buildFirstOutfit: "Build your first outfit",
     outfitName: "Outfit Name",
@@ -170,6 +172,8 @@ export const translations = {
     // Outfits
     myOutfits: "Mis Outfits",
     createOutfit: "Crear Outfit",
+    createWithAI: "Crear con IA",
+    upgradeWithAI: "Mejorar con IA",
     noOutfits: "Sin outfits aún",
     buildFirstOutfit: "Crea tu primer outfit",
     outfitName: "Nombre del Outfit",
