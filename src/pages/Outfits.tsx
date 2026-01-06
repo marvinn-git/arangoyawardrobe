@@ -5,15 +5,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Star, LayoutGrid, AlertCircle, Wand2, ArrowUpCircle } from 'lucide-react';
+import { Plus, Search, Star, LayoutGrid, AlertCircle, Wand2, ArrowUpCircle, Database } from 'lucide-react';
 import OutfitCard from '@/components/outfits/OutfitCard';
 import OutfitBuilder from '@/components/outfits/OutfitBuilder';
+import AIOutfitGenerator from '@/components/outfits/AIOutfitGenerator';
 import { UnderConstructionDialog } from '@/components/ui/under-construction-dialog';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -57,11 +59,12 @@ export default function Outfits() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showBuilder, setShowBuilder] = useState(false);
+  const [showAIGenerator, setShowAIGenerator] = useState(false);
   const [editingOutfit, setEditingOutfit] = useState<OutfitWithItems | null>(null);
   const [activeTab, setActiveTab] = useState('all');
+  const [seedingClothes, setSeedingClothes] = useState(false);
   
-  // Under construction dialogs
-  const [showAICreateDialog, setShowAICreateDialog] = useState(false);
+  // Under construction dialog for upgrade
   const [showAIUpgradeDialog, setShowAIUpgradeDialog] = useState(false);
 
   const fetchData = async () => {
@@ -166,6 +169,53 @@ export default function Outfits() {
     fetchData();
   };
 
+  const handleAIGeneratorSuccess = () => {
+    setShowAIGenerator(false);
+    fetchData();
+  };
+
+  const handleSeedTestClothing = async () => {
+    if (!user) return;
+    
+    setSeedingClothes(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-test-clothing`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to seed clothing');
+      }
+
+      toast({
+        title: language === 'es' ? 'Ropa de prueba añadida' : 'Test clothing added',
+        description: data.message,
+      });
+
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: t('error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setSeedingClothes(false);
+    }
+  };
+
   const filteredOutfits = outfits.filter((outfit) => {
     const matchesSearch = outfit.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesTab = 
@@ -194,7 +244,7 @@ export default function Outfits() {
           </Button>
           <Button 
             variant="outline" 
-            onClick={() => setShowAICreateDialog(true)} 
+            onClick={() => setShowAIGenerator(true)} 
             className="gap-2"
           >
             <Wand2 className="h-4 w-4" />
@@ -291,12 +341,28 @@ export default function Outfits() {
         </DialogContent>
       </Dialog>
 
-      {/* Under Construction Dialogs */}
-      <UnderConstructionDialog
-        open={showAICreateDialog}
-        onOpenChange={setShowAICreateDialog}
-        featureName={t('createWithAI')}
-      />
+      {/* AI Generator Dialog */}
+      <Dialog open={showAIGenerator} onOpenChange={setShowAIGenerator}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <Wand2 className="h-5 w-5" />
+              {t('createWithAI')}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'es' 
+                ? 'La IA creará un outfit basado en tu armario y preferencias de estilo'
+                : 'AI will create an outfit based on your wardrobe and style preferences'}
+            </DialogDescription>
+          </DialogHeader>
+          <AIOutfitGenerator
+            onSuccess={handleAIGeneratorSuccess}
+            onCancel={() => setShowAIGenerator(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Under Construction Dialog for Upgrade */}
       <UnderConstructionDialog
         open={showAIUpgradeDialog}
         onOpenChange={setShowAIUpgradeDialog}

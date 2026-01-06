@@ -61,7 +61,6 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       if (prev.includes(tagId)) {
         return prev.filter((id) => id !== tagId);
       }
-      if (prev.length >= 5) return prev;
       return [...prev, tagId];
     });
   };
@@ -98,7 +97,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     }
 
     if (step === 'style') {
-      if (selectedStyleTagIds.length !== 5) {
+      if (selectedStyleTagIds.length < 3) {
         toast({
           title: t('error'),
           description: t('selectStyleTags'),
@@ -319,11 +318,15 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-muted-foreground">
+                {selectedStyleTagIds.length} {t('styleTagsCount')} {selectedStyleTagIds.length < 3 ? `(min 3)` : ''}
+              </span>
+            </div>
             <SearchableChipSelector
               options={allStyleTags}
               selectedIds={selectedStyleTagIds}
               onToggle={toggleStyleTag}
-              maxSelected={5}
               placeholder={language === 'es' ? 'Buscar estilos...' : 'Search styles...'}
               showCreateNew={false}
             />
@@ -334,7 +337,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               <Button 
                 onClick={handleNext} 
                 className="flex-1 gap-2"
-                disabled={selectedStyleTagIds.length !== 5}
+                disabled={selectedStyleTagIds.length < 3}
               >
                 {language === 'es' ? 'Continuar' : 'Continue'}
                 <ChevronRight className="h-4 w-4" />
