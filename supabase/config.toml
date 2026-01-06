@@ -1,1 +1,7 @@
 project_id = "mnnasokmyyvshroujipp"
+
+[functions.generate-outfit]
+verify_jwt = false
+
+[functions.seed-test-clothing]
+verify_jwt = false

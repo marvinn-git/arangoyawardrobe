@@ -107,9 +107,6 @@ export default function Profile() {
       if (prev.includes(tagId)) {
         return prev.filter((id) => id !== tagId);
       }
-      if (prev.length >= 5) {
-        return prev; // Max 5 tags
-      }
       return [...prev, tagId];
     });
   };
@@ -128,8 +125,8 @@ export default function Profile() {
     e.preventDefault();
     if (!user) return;
 
-    // Validate 5 style tags
-    if (selectedStyleTagIds.length !== 5) {
+    // Validate minimum 3 style tags
+    if (selectedStyleTagIds.length < 3) {
       toast({ 
         title: t('error'), 
         description: t('selectStyleTags'), 
@@ -255,8 +252,8 @@ export default function Profile() {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>{t('styleTagsRequired')} *</Label>
-                <Badge variant={selectedStyleTagIds.length === 5 ? "default" : "secondary"}>
-                  {selectedStyleTagIds.length}/5 {t('styleTagsCount')}
+                <Badge variant={selectedStyleTagIds.length >= 3 ? "default" : "secondary"}>
+                  {selectedStyleTagIds.length} {t('styleTagsCount')} {selectedStyleTagIds.length < 3 ? `(min 3)` : ''}
                 </Badge>
               </div>
               <SearchableChipSelector
@@ -264,7 +261,6 @@ export default function Profile() {
                 selectedIds={selectedStyleTagIds}
                 onToggle={toggleStyleTag}
                 onCreateNew={handleCreateStyleTag}
-                maxSelected={5}
                 placeholder={language === 'es' ? 'Buscar estilos...' : 'Search styles...'}
                 showCreateNew={false}
               />

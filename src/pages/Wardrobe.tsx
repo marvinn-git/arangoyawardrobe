@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Shirt, Star } from 'lucide-react';
+import { Plus, Search, Shirt, Star, Database, Loader2 } from 'lucide-react';
 import ClothingCard from '@/components/wardrobe/ClothingCard';
 import ClothingForm from '@/components/wardrobe/ClothingForm';
 import CategoryFilter from '@/components/wardrobe/CategoryFilter';
@@ -54,6 +54,49 @@ export default function Wardrobe() {
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<ClothingItem | null>(null);
   const [activeTab, setActiveTab] = useState('all');
+  const [seedingClothes, setSeedingClothes] = useState(false);
+
+  const handleSeedTestClothing = async () => {
+    if (!user) return;
+    
+    setSeedingClothes(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-test-clothing`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to seed clothing');
+      }
+
+      toast({
+        title: language === 'es' ? 'Ropa de prueba añadida' : 'Test clothing added',
+        description: data.message,
+      });
+
+      fetchData();
+    } catch (error: any) {
+      toast({
+        title: t('error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setSeedingClothes(false);
+    }
+  };
 
   const fetchData = async () => {
     if (!user) return;
@@ -143,10 +186,25 @@ export default function Wardrobe() {
             {clothes.length} {language === 'es' ? 'prendas' : 'items'}
           </p>
         </div>
-        <Button onClick={() => setShowForm(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          {t('addClothing')}
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowForm(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            {t('addClothing')}
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleSeedTestClothing} 
+            disabled={seedingClothes}
+            className="gap-2"
+          >
+            {seedingClothes ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Database className="h-4 w-4" />
+            )}
+            {language === 'es' ? 'Añadir ropa de prueba' : 'Add test clothing'}
+          </Button>
+        </div>
       </div>
 
       {/* Search, Filter, and Tabs */}
