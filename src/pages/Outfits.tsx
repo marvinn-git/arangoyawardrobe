@@ -9,7 +9,7 @@ import { Plus, Search, Star, LayoutGrid, AlertCircle, Wand2, ArrowUpCircle, Data
 import OutfitCard from '@/components/outfits/OutfitCard';
 import OutfitBuilder from '@/components/outfits/OutfitBuilder';
 import AIOutfitGenerator from '@/components/outfits/AIOutfitGenerator';
-import { UnderConstructionDialog } from '@/components/ui/under-construction-dialog';
+import AIOutfitUpgrade from '@/components/outfits/AIOutfitUpgrade';
 import {
   Dialog,
   DialogContent,
@@ -63,9 +63,7 @@ export default function Outfits() {
   const [editingOutfit, setEditingOutfit] = useState<OutfitWithItems | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [seedingClothes, setSeedingClothes] = useState(false);
-  
-  // Under construction dialog for upgrade
-  const [showAIUpgradeDialog, setShowAIUpgradeDialog] = useState(false);
+  const [showAIUpgrade, setShowAIUpgrade] = useState(false);
 
   const fetchData = async () => {
     if (!user) return;
@@ -252,7 +250,7 @@ export default function Outfits() {
           </Button>
           <Button 
             variant="outline" 
-            onClick={() => setShowAIUpgradeDialog(true)} 
+            onClick={() => setShowAIUpgrade(true)} 
             className="gap-2"
           >
             <ArrowUpCircle className="h-4 w-4" />
@@ -362,12 +360,27 @@ export default function Outfits() {
         </DialogContent>
       </Dialog>
 
-      {/* Under Construction Dialog for Upgrade */}
-      <UnderConstructionDialog
-        open={showAIUpgradeDialog}
-        onOpenChange={setShowAIUpgradeDialog}
-        featureName={t('upgradeWithAI')}
-      />
+      {/* AI Upgrade Dialog */}
+      <Dialog open={showAIUpgrade} onOpenChange={setShowAIUpgrade}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <ArrowUpCircle className="h-5 w-5" />
+              {t('upgradeWithAI')}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'es' 
+                ? 'La IA analizará tu outfit y sugerirá mejoras'
+                : 'AI will analyze your outfit and suggest improvements'}
+            </DialogDescription>
+          </DialogHeader>
+          <AIOutfitUpgrade
+            outfits={outfits.map(o => ({ id: o.id, name: o.name }))}
+            onSuccess={() => { setShowAIUpgrade(false); fetchData(); }}
+            onCancel={() => setShowAIUpgrade(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

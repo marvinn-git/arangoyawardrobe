@@ -29,7 +29,7 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    const { occasion, weather, mood } = await req.json();
+    const { occasion, weather, mood, extraDetails, excludeItemIds } = await req.json();
 
     // Fetch user's clothing items
     const { data: clothingItems, error: clothingError } = await supabase
@@ -43,6 +43,7 @@ serve(async (req) => {
         category_id,
         categories (
           name,
+          name_es,
           is_top,
           is_bottom
         )
@@ -58,6 +59,10 @@ serve(async (req) => {
       );
     }
 
+    // Filter out excluded items if any
+    const excludeSet = new Set(excludeItemIds || []);
+    const availableItems = clothingItems.filter((item: any) => !excludeSet.has(item.id));
+
     // Fetch user's style preferences
     const { data: userTags } = await supabase
       .from("user_style_tags")
@@ -69,43 +74,97 @@ serve(async (req) => {
     // Fetch user profile
     const { data: profile } = await supabase
       .from("profiles")
-      .select("name, style_preferences")
+      .select("name, style_preferences, height_cm, weight_kg")
       .eq("user_id", user.id)
       .single();
 
-    // Categorize items
-    const tops = clothingItems.filter((item: any) => item.categories?.is_top);
-    const bottoms = clothingItems.filter((item: any) => item.categories?.is_bottom);
-    const accessories = clothingItems.filter((item: any) => 
-      !item.categories?.is_top && !item.categories?.is_bottom
-    );
+    // Categorize items with more detail
+    const baseLayerTops = availableItems.filter((item: any) => {
+      const catName = item.categories?.name?.toLowerCase() || "";
+      return item.categories?.is_top && 
+        (catName.includes("t-shirt") || catName.includes("tank") || catName.includes("polo") || catName === "shirt");
+    });
+    
+    const midLayerTops = availableItems.filter((item: any) => {
+      const catName = item.categories?.name?.toLowerCase() || "";
+      return item.categories?.is_top && 
+        (catName.includes("sweater") || catName.includes("hoodie") || catName.includes("cardigan") || catName.includes("vest"));
+    });
+    
+    const outerLayerTops = availableItems.filter((item: any) => {
+      const catName = item.categories?.name?.toLowerCase() || "";
+      return item.categories?.is_top && 
+        (catName.includes("jacket") || catName.includes("coat") || catName.includes("blazer"));
+    });
+    
+    const allTops = availableItems.filter((item: any) => item.categories?.is_top);
+    const bottoms = availableItems.filter((item: any) => item.categories?.is_bottom);
+    const footwear = availableItems.filter((item: any) => {
+      const catName = item.categories?.name?.toLowerCase() || "";
+      return !item.categories?.is_top && !item.categories?.is_bottom && 
+        (catName.includes("sneaker") || catName.includes("boot") || catName.includes("loafer") || catName.includes("shoe") || catName.includes("sandal"));
+    });
+    const accessories = availableItems.filter((item: any) => {
+      const catName = item.categories?.name?.toLowerCase() || "";
+      return !item.categories?.is_top && !item.categories?.is_bottom && 
+        !catName.includes("sneaker") && !catName.includes("boot") && !catName.includes("loafer") && !catName.includes("shoe") && !catName.includes("sandal");
+    });
 
-    if (tops.length === 0 || bottoms.length === 0) {
+    if (allTops.length === 0 || bottoms.length === 0) {
       return new Response(
         JSON.stringify({ error: "You need at least one top and one bottom item to generate an outfit" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Build AI prompt
-    const prompt = `You are a fashion stylist AI. Based on the user's wardrobe and preferences, suggest a complete outfit.
+    // Build comprehensive AI prompt
+    const prompt = `You are an expert fashion stylist AI. Create a complete, well-coordinated outfit from the user's wardrobe.
 
-User's style preferences: ${styleTags.join(", ")}
-${profile?.style_preferences ? `Additional notes: ${profile.style_preferences}` : ""}
-${occasion ? `Occasion: ${occasion}` : ""}
-${weather ? `Weather: ${weather}` : ""}
+IMPORTANT GUIDELINES:
+1. ALWAYS include MULTIPLE tops when appropriate - combine a base layer (t-shirt) with mid-layer (sweater/hoodie) AND/OR outer layer (jacket/coat)
+2. Consider LAYERING based on weather - cold weather needs more layers, warm weather can be minimal
+3. Include footwear if available - it completes the look
+4. Add accessories that complement the style
+5. Consider color coordination and style coherence
+6. The outfit should have 4-8 pieces total for a complete look
+
+USER'S STYLE PREFERENCES:
+${styleTags.length > 0 ? `Style tags: ${styleTags.join(", ")}` : "No specific style tags"}
+${profile?.style_preferences ? `Notes: ${profile.style_preferences}` : ""}
+${profile?.height_cm ? `Height: ${profile.height_cm}cm` : ""}
+
+USER'S REQUIREMENTS:
+${occasion ? `Occasion: ${occasion}` : "General daily wear"}
+${weather ? `Weather: ${weather}` : "Moderate weather"}
 ${mood ? `Mood/Vibe: ${mood}` : ""}
+${extraDetails ? `Additional requests: ${extraDetails}` : ""}
 
-Available tops:
-${tops.map((t: any) => `- ${t.name} (${t.color || "no color"}, ${t.brand || "no brand"}) [ID: ${t.id}]`).join("\n")}
+AVAILABLE WARDROBE:
 
-Available bottoms:
-${bottoms.map((b: any) => `- ${b.name} (${b.color || "no color"}, ${b.brand || "no brand"}) [ID: ${b.id}]`).join("\n")}
+${baseLayerTops.length > 0 ? `BASE LAYER TOPS (T-shirts, Tank tops, Basic shirts):
+${baseLayerTops.map((t: any) => `- ${t.name} (${t.color || "no color"}, ${t.brand || "no brand"}, Category: ${t.categories?.name}) [ID: ${t.id}]`).join("\n")}
+` : ""}
 
-${accessories.length > 0 ? `Available accessories:
-${accessories.map((a: any) => `- ${a.name} (${a.color || "no color"}) [ID: ${a.id}]`).join("\n")}` : ""}
+${midLayerTops.length > 0 ? `MID LAYER TOPS (Sweaters, Hoodies, Cardigans):
+${midLayerTops.map((t: any) => `- ${t.name} (${t.color || "no color"}, ${t.brand || "no brand"}, Category: ${t.categories?.name}) [ID: ${t.id}]`).join("\n")}
+` : ""}
 
-Please select the best combination that matches the user's style. Return your response using the suggest_outfit function.`;
+${outerLayerTops.length > 0 ? `OUTER LAYER TOPS (Jackets, Coats, Blazers):
+${outerLayerTops.map((t: any) => `- ${t.name} (${t.color || "no color"}, ${t.brand || "no brand"}, Category: ${t.categories?.name}) [ID: ${t.id}]`).join("\n")}
+` : ""}
+
+BOTTOMS:
+${bottoms.map((b: any) => `- ${b.name} (${b.color || "no color"}, ${b.brand || "no brand"}, Category: ${b.categories?.name}) [ID: ${b.id}]`).join("\n")}
+
+${footwear.length > 0 ? `FOOTWEAR:
+${footwear.map((f: any) => `- ${f.name} (${f.color || "no color"}, ${f.brand || "no brand"}) [ID: ${f.id}]`).join("\n")}
+` : ""}
+
+${accessories.length > 0 ? `ACCESSORIES (Hats, Watches, Chains, Belts, Bags, etc.):
+${accessories.map((a: any) => `- ${a.name} (${a.color || "no color"}, ${a.brand || "no brand"}, Category: ${a.categories?.name}) [ID: ${a.id}]`).join("\n")}
+` : ""}
+
+Create a stylish, cohesive outfit using the suggest_outfit function. Remember to LAYER appropriately!`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -121,7 +180,7 @@ Please select the best combination that matches the user's style. Return your re
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You are a helpful fashion stylist AI. Always use the provided function to return structured outfit suggestions." },
+          { role: "system", content: "You are an expert fashion stylist. Create complete, layered outfits that look cohesive and stylish. Always use the provided function to return your outfit selection. Think about how pieces work together - colors, textures, and overall vibe." },
           { role: "user", content: prompt },
         ],
         tools: [
@@ -129,37 +188,56 @@ Please select the best combination that matches the user's style. Return your re
             type: "function",
             function: {
               name: "suggest_outfit",
-              description: "Suggest an outfit combination from the user's wardrobe",
+              description: "Suggest a complete outfit combination with multiple pieces including layering",
               parameters: {
                 type: "object",
                 properties: {
                   outfit_name: { 
                     type: "string", 
-                    description: "A creative name for the outfit" 
+                    description: "A creative, descriptive name for the outfit that captures its vibe" 
                   },
-                  top_id: { 
-                    type: "string", 
-                    description: "The ID of the selected top item" 
+                  base_layer_ids: { 
+                    type: "array", 
+                    items: { type: "string" },
+                    description: "IDs of base layer tops (t-shirts, tank tops, basic shirts worn closest to body)" 
+                  },
+                  mid_layer_ids: { 
+                    type: "array", 
+                    items: { type: "string" },
+                    description: "IDs of mid layer tops (sweaters, hoodies, cardigans worn over base layer)" 
+                  },
+                  outer_layer_ids: { 
+                    type: "array", 
+                    items: { type: "string" },
+                    description: "IDs of outer layer tops (jackets, coats, blazers worn on top)" 
                   },
                   bottom_id: { 
                     type: "string", 
-                    description: "The ID of the selected bottom item" 
+                    description: "The ID of the selected bottom item (pants, jeans, shorts)" 
+                  },
+                  footwear_id: { 
+                    type: "string", 
+                    description: "The ID of the selected footwear (optional)" 
                   },
                   accessory_ids: { 
                     type: "array", 
                     items: { type: "string" },
-                    description: "Array of accessory IDs (optional)" 
+                    description: "Array of accessory IDs (hats, watches, chains, belts, bags)" 
                   },
                   styling_tips: { 
                     type: "string", 
-                    description: "Brief styling tips for this outfit" 
+                    description: "Detailed styling tips - how to wear each piece, what to tuck, roll, etc." 
                   },
                   explanation: { 
                     type: "string", 
-                    description: "Why this combination works for the user's style" 
+                    description: "Why this combination works - color story, style coherence, and how it matches the user's preferences" 
+                  },
+                  color_palette: {
+                    type: "string",
+                    description: "The main colors in this outfit and how they work together"
                   },
                 },
-                required: ["outfit_name", "top_id", "bottom_id", "styling_tips", "explanation"],
+                required: ["outfit_name", "bottom_id", "styling_tips", "explanation"],
                 additionalProperties: false,
               },
             },
@@ -184,15 +262,46 @@ Please select the best combination that matches the user's style. Return your re
 
     const suggestion = JSON.parse(toolCall.function.arguments);
 
-    // Validate the suggested item IDs exist
-    const selectedIds = [suggestion.top_id, suggestion.bottom_id, ...(suggestion.accessory_ids || [])];
-    const validItems = clothingItems.filter((item: any) => selectedIds.includes(item.id));
+    // Collect all selected item IDs
+    const allSelectedIds = [
+      ...(suggestion.base_layer_ids || []),
+      ...(suggestion.mid_layer_ids || []),
+      ...(suggestion.outer_layer_ids || []),
+      suggestion.bottom_id,
+      suggestion.footwear_id,
+      ...(suggestion.accessory_ids || []),
+    ].filter(Boolean);
+
+    // Validate and collect the items
+    const validItems = availableItems.filter((item: any) => allSelectedIds.includes(item.id));
+
+    // For backward compatibility, set top_id to the first base layer or first top
+    const topId = suggestion.base_layer_ids?.[0] || suggestion.mid_layer_ids?.[0] || suggestion.outer_layer_ids?.[0];
 
     return new Response(
       JSON.stringify({
         suggestion: {
-          ...suggestion,
+          outfit_name: suggestion.outfit_name,
+          top_id: topId,
+          bottom_id: suggestion.bottom_id,
+          accessory_ids: [
+            ...(suggestion.mid_layer_ids || []),
+            ...(suggestion.outer_layer_ids || []),
+            suggestion.footwear_id,
+            ...(suggestion.accessory_ids || []),
+          ].filter(Boolean),
+          styling_tips: suggestion.styling_tips,
+          explanation: suggestion.explanation,
+          color_palette: suggestion.color_palette,
           items: validItems,
+          layers: {
+            base: suggestion.base_layer_ids || [],
+            mid: suggestion.mid_layer_ids || [],
+            outer: suggestion.outer_layer_ids || [],
+            bottom: suggestion.bottom_id,
+            footwear: suggestion.footwear_id,
+            accessories: suggestion.accessory_ids || [],
+          },
         },
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

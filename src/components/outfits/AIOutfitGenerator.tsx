@@ -41,6 +41,7 @@ export default function AIOutfitGenerator({ onSuccess, onCancel }: AIOutfitGener
   const [occasion, setOccasion] = useState('');
   const [weather, setWeather] = useState('');
   const [mood, setMood] = useState('');
+  const [extraDetails, setExtraDetails] = useState('');
 
   const handleGenerate = async () => {
     if (!user) return;
@@ -60,7 +61,7 @@ export default function AIOutfitGenerator({ onSuccess, onCancel }: AIOutfitGener
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ occasion, weather, mood }),
+          body: JSON.stringify({ occasion, weather, mood, extraDetails }),
         }
       );
 
@@ -184,6 +185,23 @@ export default function AIOutfitGenerator({ onSuccess, onCancel }: AIOutfitGener
                   placeholder={language === 'es' ? 'ej: relajado, elegante...' : 'e.g., relaxed, elegant...'}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="extraDetails">
+                {language === 'es' ? 'Detalles adicionales' : 'Extra details'}
+              </Label>
+              <Input
+                id="extraDetails"
+                value={extraDetails}
+                onChange={(e) => setExtraDetails(e.target.value)}
+                placeholder={language === 'es' ? 'ej: sin chaquetas, colores oscuros, marcas específicas...' : 'e.g., no jackets, dark colors, specific brands...'}
+              />
+              <p className="text-xs text-muted-foreground">
+                {language === 'es' 
+                  ? 'Especifica prendas a excluir, colores preferidos, o cualquier detalle extra'
+                  : 'Specify pieces to exclude, preferred colors, or any other details'}
+              </p>
             </div>
           </div>
 
