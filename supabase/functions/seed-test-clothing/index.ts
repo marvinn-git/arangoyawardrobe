@@ -9,72 +9,75 @@ const corsHeaders = {
 // Placeholder image when AI generation fails
 const PLACEHOLDER_IMAGE = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNlNWU1ZTUiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk5OSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
 
-// Generate AI image for clothing with retry logic
-async function generateClothingImage(description: string, apiKey: string, retries = 2): Promise<string> {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-image-preview",
-          messages: [
-            {
-              role: "user",
-              content: `Generate a clean, professional product photo of ${description}. White background, centered, high quality fashion photography style. The clothing item should be displayed flat or on an invisible mannequin.`,
-            },
-          ],
-          modalities: ["image", "text"],
-        }),
-      });
+// Generate AI image for clothing - quick fail, no retries to avoid timeouts
+async function generateClothingImage(description: string, apiKey: string): Promise<string> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image-preview",
+        messages: [
+          {
+            role: "user",
+            content: `Generate a clean, professional product photo of ${description}. White background, centered, high quality fashion photography style.`,
+          },
+        ],
+        modalities: ["image", "text"],
+      }),
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Image generation attempt ${attempt + 1} failed:`, errorText);
-        if (attempt < retries) {
-          await new Promise(r => setTimeout(r, 2000 * (attempt + 1))); // Exponential backoff
-          continue;
-        }
-        return PLACEHOLDER_IMAGE;
-      }
-
-      const data = await response.json();
-      const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-      return imageUrl || PLACEHOLDER_IMAGE;
-    } catch (error) {
-      console.error(`Error generating image (attempt ${attempt + 1}):`, error);
-      if (attempt < retries) {
-        await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
-        continue;
-      }
+    if (!response.ok) {
+      console.log(`Image generation failed, using placeholder`);
       return PLACEHOLDER_IMAGE;
     }
+
+    const data = await response.json();
+    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    return imageUrl || PLACEHOLDER_IMAGE;
+  } catch (error) {
+    console.log(`Image generation error, using placeholder`);
+    return PLACEHOLDER_IMAGE;
   }
-  return PLACEHOLDER_IMAGE;
+}
+
+interface ProcessResult {
+  item: { name: string };
+  success: boolean;
+  reason?: string;
+  data?: unknown;
+  hasPlaceholder?: boolean;
 }
 
 // Process items in batches to avoid rate limits
-async function processBatch<T, R>(
-  items: T[],
+async function processBatch(
+  items: Array<{ name: string; color: string; brand: string; categoryName: string; description: string }>,
   batchSize: number,
   delayMs: number,
-  processor: (item: T) => Promise<R>
-): Promise<R[]> {
-  const results: R[] = [];
+  processor: (item: { name: string; color: string; brand: string; categoryName: string; description: string }) => Promise<ProcessResult>
+): Promise<ProcessResult[]> {
+  const results: ProcessResult[] = [];
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
     const batchResults = await Promise.all(batch.map(processor));
     results.push(...batchResults);
     if (i + batchSize < items.length) {
-      console.log(`Processed ${Math.min(i + batchSize, items.length)}/${items.length} items, waiting...`);
-      await new Promise(r => setTimeout(r, delayMs));
+      console.log(`Processed ${Math.min(i + batchSize, items.length)}/${items.length} items`);
+      await new Promise<void>(r => setTimeout(r, delayMs));
     }
   }
   return results;
 }
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
