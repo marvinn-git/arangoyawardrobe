@@ -245,26 +245,16 @@ serve(async (req) => {
       { name: "Vintage Racing Polo", color: "Navy/Red", brand: "Tommy Hilfiger", categoryName: "Polo", description: "navy and red vintage Tommy Hilfiger racing polo shirt" },
     ];
 
-    // Batch mode: avoid long-running requests (prevents client-side “Failed to fetch”)
-    let body: any = {};
-    try {
-      body = await req.json();
-    } catch {
-      body = {};
-    }
-
-    const total = testClothingItems.length;
-    const cursor = Math.max(0, Number(body.cursor ?? 0) || 0);
-    const batchSize = Math.min(8, Math.max(1, Number(body.batchSize ?? 4) || 4));
-
-    const batchItems = testClothingItems.slice(cursor, cursor + batchSize);
+    // Pick 10 random items from the pool each click
+    const count = 10;
+    const shuffled = [...testClothingItems].sort(() => Math.random() - 0.5);
+    const selectedItems = shuffled.slice(0, count);
 
     const createdItems: unknown[] = [];
     const placeholderItems: string[] = [];
 
-    for (let i = 0; i < batchItems.length; i++) {
-      const item = batchItems[i];
-      const globalIndex = cursor + i;
+    for (let i = 0; i < selectedItems.length; i++) {
+      const item = selectedItems[i];
 
       const category = categories.find((c: { name: string }) => c.name === item.categoryName);
       if (!category) {
@@ -272,7 +262,7 @@ serve(async (req) => {
         continue;
       }
 
-      console.log(`Processing ${globalIndex + 1}/${total}: ${item.name}`);
+      console.log(`Processing ${i + 1}/${count}: ${item.name}`);
 
       const imageUrl = await generateClothingImage(item.description, LOVABLE_API_KEY);
       if (imageUrl === PLACEHOLDER_IMAGE) placeholderItems.push(item.name);
@@ -299,24 +289,18 @@ serve(async (req) => {
       }
 
       // Light pacing to reduce transient rate limits
-      if (i < batchItems.length - 1) {
+      if (i < selectedItems.length - 1) {
         await sleep(200);
       }
     }
-
-    const nextCursor = cursor + batchItems.length;
 
     return new Response(
       JSON.stringify({
         success: true,
         inserted: createdItems.length,
-        total,
-        cursor,
-        nextCursor,
-        done: nextCursor >= total,
         placeholderCount: placeholderItems.length,
         placeholderItems,
-        message: `Created ${createdItems.length} items in this batch (${placeholderItems.length} placeholders)`,
+        message: `Added ${createdItems.length} random items${placeholderItems.length > 0 ? ` (${placeholderItems.length} placeholders)` : ""}`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

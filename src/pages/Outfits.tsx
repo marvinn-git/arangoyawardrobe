@@ -180,51 +180,26 @@ export default function Outfits() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-test-clothing`;
-
-      let cursor = 0;
-      let total = 0;
-      let insertedTotal = 0;
-      let placeholderTotal = 0;
-
-      for (let safety = 0; safety < 200; safety++) {
-        const resp = await fetch(url, {
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-test-clothing`,
+        {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ cursor, batchSize: 4 }),
-        });
-
-        const raw = await resp.text();
-        let data: any = {};
-        try {
-          data = raw ? JSON.parse(raw) : {};
-        } catch {
-          throw new Error(`Seed failed (non-JSON response): ${raw.slice(0, 200)}`);
         }
+      );
 
-        if (!resp.ok) {
-          throw new Error(data.error || `Failed to seed clothing (${resp.status})`);
-        }
+      const data = await resp.json();
 
-        insertedTotal += Number(data.inserted ?? 0);
-        placeholderTotal += Number(data.placeholderCount ?? 0);
-        total = Number(data.total ?? total);
-
-        cursor = Number(data.nextCursor ?? cursor);
-        if (data.done) break;
-
-        await new Promise((r) => setTimeout(r, 300));
+      if (!resp.ok) {
+        throw new Error(data.error || 'Failed to seed clothing');
       }
 
       toast({
         title: language === 'es' ? 'Ropa de prueba añadida' : 'Test clothing added',
-        description:
-          placeholderTotal > 0
-            ? `Created ${insertedTotal}/${total} items (${placeholderTotal} placeholder images)`
-            : `Created ${insertedTotal}/${total} items`,
+        description: data.message,
       });
 
       fetchData();
