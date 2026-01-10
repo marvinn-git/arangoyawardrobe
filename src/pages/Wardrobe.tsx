@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -86,7 +86,8 @@ export default function Wardrobe() {
         description: data.message,
       });
 
-      fetchData();
+      // Refresh immediately
+      await fetchData();
     } catch (error: any) {
       toast({
         title: t('error'),
