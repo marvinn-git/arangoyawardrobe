@@ -6,48 +6,77 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Placeholder image when AI generation fails
-const PLACEHOLDER_IMAGE = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNlNWU1ZTUiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk5OSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==";
+// Generate AI image for clothing with retries
+async function generateClothingImage(description: string, apiKey: string, maxRetries: number = 3): Promise<string> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image-preview",
+          messages: [
+            {
+              role: "user",
+              content: `Generate a clean, professional product photo of ${description}. White background, centered, high quality fashion photography style.`,
+            },
+          ],
+          modalities: ["image", "text"],
+        }),
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
 
-// Generate AI image for clothing - quick fail, no retries to avoid timeouts
-async function generateClothingImage(description: string, apiKey: string): Promise<string> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-    
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: `Generate a clean, professional product photo of ${description}. White background, centered, high quality fashion photography style.`,
-          },
-        ],
-        modalities: ["image", "text"],
-      }),
-      signal: controller.signal,
-    });
-    
-    clearTimeout(timeoutId);
+      if (response.status === 429) {
+        // Rate limited - wait with exponential backoff
+        const waitTime = Math.pow(2, attempt) * 5000; // 10s, 20s, 40s
+        console.log(`Rate limited, waiting ${waitTime/1000}s before retry ${attempt}/${maxRetries}`);
+        await new Promise(r => setTimeout(r, waitTime));
+        continue;
+      }
 
-    if (!response.ok) {
-      console.log(`Image generation failed, using placeholder`);
-      return PLACEHOLDER_IMAGE;
+      if (!response.ok) {
+        console.log(`Image generation failed with status ${response.status}, attempt ${attempt}/${maxRetries}`);
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 2000));
+          continue;
+        }
+        throw new Error(`Failed after ${maxRetries} attempts`);
+      }
+
+      const data = await response.json();
+      const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (imageUrl) {
+        return imageUrl;
+      }
+      
+      console.log(`No image in response, attempt ${attempt}/${maxRetries}`);
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 2000));
+        continue;
+      }
+      throw new Error("No image returned");
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log(`Timeout on attempt ${attempt}/${maxRetries}`);
+      } else {
+        console.log(`Image generation error on attempt ${attempt}/${maxRetries}:`, error);
+      }
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 3000));
+        continue;
+      }
+      throw error;
     }
-
-    const data = await response.json();
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    return imageUrl || PLACEHOLDER_IMAGE;
-  } catch (error) {
-    console.log(`Image generation error, using placeholder`);
-    return PLACEHOLDER_IMAGE;
   }
+  throw new Error("Failed to generate image after all retries");
 }
 
 interface ProcessResult {
@@ -264,8 +293,8 @@ serve(async (req) => {
     const createdItems = [];
     const skippedItems = [];
 
-    // Process in small batches of 3 with 3 second delays
-    const processItem = async (item: typeof testClothingItems[0]) => {
+    // Process items one at a time with delays to respect rate limits
+    const processItem = async (item: typeof testClothingItems[0]): Promise<ProcessResult> => {
       // Find the category
       const category = categories.find((c: any) => c.name === item.categoryName);
       if (!category) {
@@ -273,36 +302,41 @@ serve(async (req) => {
         return { item, success: false, reason: "category_not_found" };
       }
 
-      // Generate AI image with fallback
-      console.log(`Generating image for: ${item.name}`);
-      const imageUrl = await generateClothingImage(item.description, LOVABLE_API_KEY);
+      try {
+        // Generate AI image - will throw if all retries fail
+        console.log(`Generating image for: ${item.name}`);
+        const imageUrl = await generateClothingImage(item.description, LOVABLE_API_KEY);
 
-      // Insert clothing item - always insert even with placeholder
-      const { data: clothingItem, error: itemError } = await supabase
-        .from("clothing_items")
-        .insert({
-          user_id: user.id,
-          name: item.name,
-          color: item.color,
-          brand: item.brand,
-          category_id: category.id,
-          image_url: imageUrl,
-          is_favorite: false,
-          is_accessory: !category.is_top && !category.is_bottom,
-        })
-        .select()
-        .single();
+        // Insert clothing item
+        const { data: clothingItem, error: itemError } = await supabase
+          .from("clothing_items")
+          .insert({
+            user_id: user.id,
+            name: item.name,
+            color: item.color,
+            brand: item.brand,
+            category_id: category.id,
+            image_url: imageUrl,
+            is_favorite: false,
+            is_accessory: !category.is_top && !category.is_bottom,
+          })
+          .select()
+          .single();
 
-      if (itemError) {
-        console.error(`Error inserting ${item.name}:`, itemError);
-        return { item, success: false, reason: "insert_error" };
+        if (itemError) {
+          console.error(`Error inserting ${item.name}:`, itemError);
+          return { item, success: false, reason: "insert_error" };
+        }
+
+        return { item, success: true, data: clothingItem };
+      } catch (error) {
+        console.error(`Failed to generate image for ${item.name}:`, error);
+        return { item, success: false, reason: "image_generation_failed" };
       }
-
-      return { item, success: true, data: clothingItem, hasPlaceholder: imageUrl === PLACEHOLDER_IMAGE };
     };
 
-    // Process items in batches of 3 with 3 second delays
-    const results = await processBatch(testClothingItems, 3, 3000, processItem);
+    // Process items in batches of 2 with 5 second delays to handle rate limits
+    const results = await processBatch(testClothingItems, 2, 5000, processItem);
 
     for (const result of results) {
       if (result.success) {
@@ -312,15 +346,13 @@ serve(async (req) => {
       }
     }
 
-    const placeholderCount = results.filter(r => r.success && r.hasPlaceholder).length;
-
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Created ${createdItems.length} test clothing items (${placeholderCount} with placeholder images)`,
+        message: `Created ${createdItems.length} test clothing items with AI-generated images`,
         itemCount: createdItems.length,
-        placeholderCount,
         skipped: skippedItems,
+        skippedCount: skippedItems.length,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
