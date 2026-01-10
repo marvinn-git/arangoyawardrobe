@@ -12,8 +12,10 @@ import OnboardingFlow from "@/components/onboarding/OnboardingFlow";
 import Auth from "@/pages/Auth";
 import Wardrobe from "@/pages/Wardrobe";
 import Outfits from "@/pages/Outfits";
+import Inspiration from "@/pages/Inspiration";
 import Profile from "@/pages/Profile";
 import NotFound from "@/pages/NotFound";
+import ConnectionStatus from "@/components/ui/ConnectionStatus";
 
 const queryClient = new QueryClient();
 
@@ -86,6 +88,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/inspiration"
+        element={
+          <ProtectedRoute>
+            <Inspiration />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/profile"
         element={
           <ProtectedRoute>
@@ -105,6 +115,7 @@ const App = () => (
         <AuthProvider>
           <Toaster />
           <Sonner />
+          <ConnectionStatus />
           <BrowserRouter>
             <AppRoutes />
           </BrowserRouter>
