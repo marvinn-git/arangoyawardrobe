@@ -9,46 +9,68 @@ const corsHeaders = {
 // Placeholder for items that fail image generation
 const PLACEHOLDER_IMAGE = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDMwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiNGM0YzRjMiLz48dGV4dCB4PSIxNTAiIHk9IjE1MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZpbGw9IiM5OTkiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0Ij5JbWFnZSBQZW5kaW5nPC90ZXh0Pjwvc3ZnPg==";
 
-// Generate AI image for clothing - quick with fallback
-async function generateClothingImage(description: string, apiKey: string): Promise<string> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-    
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
-        messages: [
-          {
-            role: "user",
-            content: `Generate a clean product photo of ${description}. White/light gray background, centered, professional fashion photography.`,
-          },
-        ],
-        modalities: ["image", "text"],
-      }),
-      signal: controller.signal,
-    });
-    
-    clearTimeout(timeoutId);
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-    if (!response.ok) {
-      console.log(`Image gen failed: ${response.status}`);
+// Generate AI image for clothing with retries (to avoid transient 429/503 failures)
+async function generateClothingImage(description: string, apiKey: string): Promise<string> {
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image-preview",
+          messages: [
+            {
+              role: "user",
+              content: `Generate a clean, high-detail product photo of ${description}. Studio lighting, centered, sharp focus, white/light gray background.`,
+            },
+          ],
+          modalities: ["image", "text"],
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const status = response.status;
+        const raw = await response.text().catch(() => "");
+        console.log(`Image gen failed: ${status}${raw ? ` - ${raw.slice(0, 200)}` : ""}`);
+
+        // Transient errors: retry with exponential backoff
+        if ((status === 429 || status === 503) && attempt < maxAttempts) {
+          await sleep(500 * Math.pow(2, attempt - 1));
+          continue;
+        }
+
+        return PLACEHOLDER_IMAGE;
+      }
+
+      const data = await response.json();
+      const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      return imageUrl || PLACEHOLDER_IMAGE;
+    } catch (error) {
+      console.log(`Image error (attempt ${attempt}/${maxAttempts}): ${error}`);
+      if (attempt < maxAttempts) {
+        await sleep(500 * Math.pow(2, attempt - 1));
+        continue;
+      }
       return PLACEHOLDER_IMAGE;
     }
-
-    const data = await response.json();
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    return imageUrl || PLACEHOLDER_IMAGE;
-  } catch (error) {
-    console.log(`Image error: ${error}`);
-    return PLACEHOLDER_IMAGE;
   }
+
+  return PLACEHOLDER_IMAGE;
 }
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -223,27 +245,37 @@ serve(async (req) => {
       { name: "Vintage Racing Polo", color: "Navy/Red", brand: "Tommy Hilfiger", categoryName: "Polo", description: "navy and red vintage Tommy Hilfiger racing polo shirt" },
     ];
 
+    // Batch mode: avoid long-running requests (prevents client-side “Failed to fetch”)
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
+
+    const total = testClothingItems.length;
+    const cursor = Math.max(0, Number(body.cursor ?? 0) || 0);
+    const batchSize = Math.min(8, Math.max(1, Number(body.batchSize ?? 4) || 4));
+
+    const batchItems = testClothingItems.slice(cursor, cursor + batchSize);
+
     const createdItems: unknown[] = [];
     const placeholderItems: string[] = [];
 
-    // Process items sequentially with small delays
-    for (let i = 0; i < testClothingItems.length; i++) {
-      const item = testClothingItems[i];
+    for (let i = 0; i < batchItems.length; i++) {
+      const item = batchItems[i];
+      const globalIndex = cursor + i;
+
       const category = categories.find((c: { name: string }) => c.name === item.categoryName);
-      
       if (!category) {
         console.log(`Skipping ${item.name}: category ${item.categoryName} not found`);
         continue;
       }
 
-      console.log(`Processing ${i + 1}/${testClothingItems.length}: ${item.name}`);
-      
+      console.log(`Processing ${globalIndex + 1}/${total}: ${item.name}`);
+
       const imageUrl = await generateClothingImage(item.description, LOVABLE_API_KEY);
-      const hasPlaceholder = imageUrl === PLACEHOLDER_IMAGE;
-      
-      if (hasPlaceholder) {
-        placeholderItems.push(item.name);
-      }
+      if (imageUrl === PLACEHOLDER_IMAGE) placeholderItems.push(item.name);
 
       const { data: clothingItem, error: itemError } = await supabase
         .from("clothing_items")
@@ -266,19 +298,25 @@ serve(async (req) => {
         createdItems.push(clothingItem);
       }
 
-      // Small delay between items
-      if (i < testClothingItems.length - 1) {
-        await new Promise(r => setTimeout(r, 1500));
+      // Light pacing to reduce transient rate limits
+      if (i < batchItems.length - 1) {
+        await sleep(200);
       }
     }
+
+    const nextCursor = cursor + batchItems.length;
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Created ${createdItems.length} items (${placeholderItems.length} with placeholder images)`,
-        itemCount: createdItems.length,
+        inserted: createdItems.length,
+        total,
+        cursor,
+        nextCursor,
+        done: nextCursor >= total,
         placeholderCount: placeholderItems.length,
         placeholderItems,
+        message: `Created ${createdItems.length} items in this batch (${placeholderItems.length} placeholders)`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

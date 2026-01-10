@@ -58,39 +58,66 @@ export default function Wardrobe() {
 
   const handleSeedTestClothing = async () => {
     if (!user) return;
-    
+
     setSeedingClothes(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-test-clothing`,
-        {
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-test-clothing`;
+
+      let cursor = 0;
+      let total = 0;
+      let insertedTotal = 0;
+      let placeholderTotal = 0;
+
+      // Run in small batches so the request never times out.
+      for (let safety = 0; safety < 200; safety++) {
+        const resp = await fetch(url, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.access_token}`,
           },
+          body: JSON.stringify({ cursor, batchSize: 4 }),
+        });
+
+        const raw = await resp.text();
+        let data: any = {};
+        try {
+          data = raw ? JSON.parse(raw) : {};
+        } catch {
+          throw new Error(`Seed failed (non-JSON response): ${raw.slice(0, 200)}`);
         }
-      );
 
-      const data = await response.json();
+        if (!resp.ok) {
+          throw new Error(data.error || `Failed to seed clothing (${resp.status})`);
+        }
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to seed clothing');
+        insertedTotal += Number(data.inserted ?? 0);
+        placeholderTotal += Number(data.placeholderCount ?? 0);
+        total = Number(data.total ?? total);
+
+        cursor = Number(data.nextCursor ?? cursor);
+        if (data.done) break;
+
+        // Small pause between batches to reduce transient rate limits.
+        await new Promise((r) => setTimeout(r, 300));
       }
 
       toast({
         title: language === 'es' ? 'Ropa de prueba añadida' : 'Test clothing added',
-        description: data.message,
+        description:
+          placeholderTotal > 0
+            ? `Created ${insertedTotal}/${total} items (${placeholderTotal} placeholder images)`
+            : `Created ${insertedTotal}/${total} items`,
       });
 
       fetchData();
     } catch (error: any) {
       toast({
         title: t('error'),
-        description: error.message,
+        description: error?.message || 'Failed to seed clothing',
         variant: 'destructive',
       });
     } finally {
