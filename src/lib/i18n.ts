@@ -115,7 +115,6 @@ export const translations = {
     outfitDeleted: "Outfit deleted!",
     categoryCreated: "Category created!",
     brandCreated: "Brand created!",
-    inspiration: "Inspiration",
     needTopAndBottom: "Outfit needs at least one top and one bottom item",
   },
   es: {
@@ -232,7 +231,6 @@ export const translations = {
     outfitDeleted: "¡Outfit eliminado!",
     categoryCreated: "¡Categoría creada!",
     brandCreated: "¡Marca creada!",
-    inspiration: "Inspiración",
     needTopAndBottom: "El outfit necesita al menos una prenda superior y una inferior",
   },
 } as const;

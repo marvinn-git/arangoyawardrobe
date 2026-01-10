@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -53,7 +52,6 @@ export default function Outfits() {
   const { user } = useAuth();
   const { t, language } = useLanguage();
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   const [outfits, setOutfits] = useState<OutfitWithItems[]>([]);
   const [clothes, setClothes] = useState<ClothingItem[]>([]);
@@ -176,13 +174,13 @@ export default function Outfits() {
 
   const handleSeedTestClothing = async () => {
     if (!user) return;
-
+    
     setSeedingClothes(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Not authenticated');
 
-      const resp = await fetch(
+      const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-test-clothing`,
         {
           method: 'POST',
@@ -193,27 +191,22 @@ export default function Outfits() {
         }
       );
 
-      const data = await resp.json();
+      const data = await response.json();
 
-      if (!resp.ok) {
+      if (!response.ok) {
         throw new Error(data.error || 'Failed to seed clothing');
       }
 
       toast({
         title: language === 'es' ? 'Ropa de prueba añadida' : 'Test clothing added',
         description: data.message,
-        action: (
-          <Button variant="outline" size="sm" onClick={() => navigate('/wardrobe')}>
-            {language === 'es' ? 'Ver armario' : 'View Wardrobe'}
-          </Button>
-        ),
       });
 
-      await fetchData();
+      fetchData();
     } catch (error: any) {
       toast({
         title: t('error'),
-        description: error?.message || 'Failed to seed clothing',
+        description: error.message,
         variant: 'destructive',
       });
     } finally {
