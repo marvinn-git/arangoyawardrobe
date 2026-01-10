@@ -38,23 +38,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  const invokeAuthProxy = async (payload: Record<string, unknown>) => {
+    const { data, error } = await supabase.functions.invoke('auth-proxy', {
+      body: payload,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data as any;
+  };
+
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error as Error | null };
+    try {
+      const data = await invokeAuthProxy({ action: 'signIn', email, password });
+
+      if (data?.session?.access_token && data?.session?.refresh_token) {
+        await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+      }
+
+      return { error: null };
+    } catch (err) {
+      return { error: err as Error };
+    }
   };
 
   const signUp = async (email: string, password: string, name: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: { name }
+    try {
+      const data = await invokeAuthProxy({ action: 'signUp', email, password, name });
+
+      // With auto-confirm enabled, a session may be returned immediately.
+      if (data?.session?.access_token && data?.session?.refresh_token) {
+        await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
       }
-    });
-    return { error: error as Error | null };
+
+      return { error: null };
+    } catch (err) {
+      return { error: err as Error };
+    }
   };
 
   const signOut = async () => {
