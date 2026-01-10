@@ -38,21 +38,20 @@ export default function Inspiration() {
   const fetchPublicContent = async () => {
     setLoading(true);
     try {
-      // Fetch public outfits - simplified query
-      const outfitsRes = await supabase
+      // Fetch recent outfits (will filter by is_public once column exists)
+      const { data: outfitsData, error: outfitsError } = await supabase
         .from('outfits')
         .select('id, name, photo_url, tags, user_id')
-        .eq('is_public', true)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(50) as { data: Array<{ id: string; name: string; photo_url: string | null; tags: string[] | null; user_id: string }> | null; error: any };
 
-      if (outfitsRes.data) {
+      if (outfitsData && !outfitsError) {
         const outfitsWithItems: PublicOutfit[] = [];
-        for (const outfit of outfitsRes.data) {
+        for (const outfit of outfitsData) {
           const { data: itemsData } = await supabase
             .from('outfit_items')
             .select('clothing_item_id')
-            .eq('outfit_id', outfit.id);
+            .eq('outfit_id', outfit.id) as { data: Array<{ clothing_item_id: string }> | null };
 
           const itemIds = itemsData?.map((i) => i.clothing_item_id) || [];
           
@@ -61,7 +60,7 @@ export default function Inspiration() {
             const { data: clothingData } = await supabase
               .from('clothing_items')
               .select('id, name, image_url')
-              .in('id', itemIds);
+              .in('id', itemIds) as { data: Array<{ id: string; name: string; image_url: string }> | null };
             items = clothingData || [];
           }
 
@@ -77,16 +76,15 @@ export default function Inspiration() {
         setOutfits(outfitsWithItems);
       }
 
-      // Fetch public clothing items - simplified query
-      const clothingRes = await supabase
+      // Fetch recent clothing items
+      const { data: clothingData, error: clothingError } = await supabase
         .from('clothing_items')
         .select('id, name, image_url, wearing_image_url, brand, user_id')
-        .eq('is_public', true)
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(100) as { data: Array<{ id: string; name: string; image_url: string; wearing_image_url: string | null; brand: string | null; user_id: string }> | null; error: any };
 
-      if (clothingRes.data) {
-        const allClothes: PublicClothing[] = clothingRes.data.map((item) => ({
+      if (clothingData && !clothingError) {
+        const allClothes: PublicClothing[] = clothingData.map((item) => ({
           id: item.id,
           name: item.name,
           image_url: item.image_url,
