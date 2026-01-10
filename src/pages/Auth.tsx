@@ -70,7 +70,16 @@ export default function Auth() {
       if (isSignUp) {
         const { error } = await signUp(email, password, name);
         if (error) {
-          if (error.message.includes('already registered')) {
+          // Handle network errors
+          if (error.message === 'Failed to fetch' || error.message.includes('network')) {
+            toast({
+              title: language === 'es' ? 'Error de conexión' : 'Connection Error',
+              description: language === 'es' 
+                ? 'No se pudo conectar al servidor. Por favor, inténtalo de nuevo.'
+                : 'Could not connect to server. Please try again.',
+              variant: 'destructive',
+            });
+          } else if (error.message.includes('already registered')) {
             toast({
               title: t('error'),
               description: 'This email is already registered. Please sign in instead.',
@@ -92,11 +101,22 @@ export default function Auth() {
       } else {
         const { error } = await signIn(email, password);
         if (error) {
-          toast({
-            title: t('error'),
-            description: 'Invalid email or password',
-            variant: 'destructive',
-          });
+          // Handle network errors
+          if (error.message === 'Failed to fetch' || error.message.includes('network')) {
+            toast({
+              title: language === 'es' ? 'Error de conexión' : 'Connection Error',
+              description: language === 'es' 
+                ? 'No se pudo conectar al servidor. Por favor, inténtalo de nuevo.'
+                : 'Could not connect to server. Please try again.',
+              variant: 'destructive',
+            });
+          } else {
+            toast({
+              title: t('error'),
+              description: 'Invalid email or password',
+              variant: 'destructive',
+            });
+          }
         } else {
           toast({
             title: t('success'),
@@ -104,6 +124,16 @@ export default function Auth() {
           });
         }
       }
+    } catch (err) {
+      // Catch any unexpected errors including network failures
+      console.error('Auth error:', err);
+      toast({
+        title: language === 'es' ? 'Error de conexión' : 'Connection Error',
+        description: language === 'es' 
+          ? 'No se pudo conectar al servidor. Por favor, inténtalo de nuevo.'
+          : 'Could not connect to server. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setSubmitting(false);
     }
