@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { SearchableChipSelector } from '@/components/ui/searchable-chip-selector';
 import {
   Select,
@@ -17,11 +18,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { User, Loader2 } from 'lucide-react';
+import { User, Loader2, Camera, Upload } from 'lucide-react';
 
 interface Profile {
   id: string;
   name: string;
+  username: string | null;
   height_cm: number | null;
   weight_kg: number | null;
   avatar_url: string | null;
@@ -40,17 +42,21 @@ export default function Profile() {
   const { user } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [yearOfBirth, setYearOfBirth] = useState('');
   const [heightCm, setHeightCm] = useState('');
   const [weightKg, setWeightKg] = useState('');
   const [stylePreferences, setStylePreferences] = useState('');
   const [preferredLanguage, setPreferredLanguage] = useState<'en' | 'es'>('en');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   
   // Style tags
   const [allStyleTags, setAllStyleTags] = useState<StyleTag[]>([]);
@@ -81,11 +87,13 @@ export default function Profile() {
         const data = profileRes.data;
         setProfile(data as Profile);
         setName(data.name || '');
+        setUsername(data.username || '');
         setYearOfBirth(data.year_of_birth?.toString() || '');
         setHeightCm(data.height_cm?.toString() || '');
         setWeightKg(data.weight_kg?.toString() || '');
         setStylePreferences(data.style_preferences || '');
         setPreferredLanguage((data.preferred_language as 'en' | 'es') || 'en');
+        setAvatarUrl(data.avatar_url);
       }
 
       if (tagsRes.data) {
@@ -112,13 +120,56 @@ export default function Profile() {
   };
 
   const handleCreateStyleTag = async (name: string) => {
-    // For now style tags are predefined, but we can add custom ones later
     toast({
       title: language === 'es' ? 'Etiquetas personalizadas' : 'Custom tags',
       description: language === 'es' 
         ? 'Las etiquetas personalizadas estarán disponibles pronto' 
         : 'Custom tags will be available soon',
     });
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploadingAvatar(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}/avatar.${fileExt}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('clothing-images')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get signed URL
+      const { data: urlData } = await supabase.storage
+        .from('clothing-images')
+        .createSignedUrl(filePath, 60 * 60 * 24 * 365);
+
+      if (urlData?.signedUrl) {
+        // Update profile
+        await supabase
+          .from('profiles')
+          .update({ avatar_url: urlData.signedUrl })
+          .eq('user_id', user.id);
+
+        setAvatarUrl(urlData.signedUrl);
+        toast({
+          title: language === 'es' ? '¡Foto actualizada!' : 'Photo updated!',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: t('error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -199,6 +250,43 @@ export default function Profile() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Avatar */}
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Avatar className="h-20 w-20">
+                  <AvatarImage src={avatarUrl || undefined} />
+                  <AvatarFallback className="text-xl">
+                    {name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'}
+                  </AvatarFallback>
+                </Avatar>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  {uploadingAvatar ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Camera className="h-4 w-4" />
+                  )}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  className="sr-only"
+                />
+              </div>
+              <div>
+                <p className="font-medium">{name || user?.email}</p>
+                <p className="text-sm text-muted-foreground">
+                  @{username || (language === 'es' ? 'sin usuario' : 'no username')}
+                </p>
+              </div>
+            </div>
+
             {/* Name */}
             <div className="space-y-2">
               <Label htmlFor="name">{t('name')}</Label>
@@ -208,6 +296,27 @@ export default function Profile() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="John Doe"
               />
+            </div>
+
+            {/* Username (read-only after set) */}
+            <div className="space-y-2">
+              <Label htmlFor="username">
+                {language === 'es' ? 'Nombre de usuario' : 'Username'}
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
+                <Input
+                  id="username"
+                  value={username}
+                  disabled
+                  className="pl-8 bg-muted"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {language === 'es' 
+                  ? 'El nombre de usuario no se puede cambiar' 
+                  : 'Username cannot be changed'}
+              </p>
             </div>
 
             {/* Year of Birth */}

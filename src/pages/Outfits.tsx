@@ -5,9 +5,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, Star, LayoutGrid, AlertCircle, Wand2, ArrowUpCircle, Database } from 'lucide-react';
+import { Plus, Search, Star, LayoutGrid, AlertCircle, Wand2, ArrowUpCircle } from 'lucide-react';
 import OutfitCard from '@/components/outfits/OutfitCard';
 import OutfitBuilder from '@/components/outfits/OutfitBuilder';
+import OutfitDetailDialog from '@/components/outfits/OutfitDetailDialog';
 import AIOutfitGenerator from '@/components/outfits/AIOutfitGenerator';
 import AIOutfitUpgrade from '@/components/outfits/AIOutfitUpgrade';
 import {
@@ -44,6 +45,7 @@ interface ClothingItem {
 interface Category {
   id: string;
   name: string;
+  name_es: string | null;
   is_top: boolean;
   is_bottom: boolean;
 }
@@ -62,8 +64,9 @@ export default function Outfits() {
   const [showAIGenerator, setShowAIGenerator] = useState(false);
   const [editingOutfit, setEditingOutfit] = useState<OutfitWithItems | null>(null);
   const [activeTab, setActiveTab] = useState('all');
-  const [seedingClothes, setSeedingClothes] = useState(false);
   const [showAIUpgrade, setShowAIUpgrade] = useState(false);
+  const [selectedOutfit, setSelectedOutfit] = useState<OutfitWithItems | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
 
   const fetchData = async () => {
     if (!user) return;
@@ -83,7 +86,7 @@ export default function Outfits() {
           .eq('user_id', user.id),
         supabase
           .from('categories')
-          .select('id, name, is_top, is_bottom')
+          .select('id, name, name_es, is_top, is_bottom')
           .eq('user_id', user.id),
       ]);
 
@@ -172,46 +175,14 @@ export default function Outfits() {
     fetchData();
   };
 
-  const handleSeedTestClothing = async () => {
-    if (!user) return;
-    
-    setSeedingClothes(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Not authenticated');
+  const handleViewOutfit = (outfit: OutfitWithItems) => {
+    setSelectedOutfit(outfit);
+    setShowDetail(true);
+  };
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-test-clothing`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to seed clothing');
-      }
-
-      toast({
-        title: language === 'es' ? 'Ropa de prueba añadida' : 'Test clothing added',
-        description: data.message,
-      });
-
-      fetchData();
-    } catch (error: any) {
-      toast({
-        title: t('error'),
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setSeedingClothes(false);
-    }
+  const handleDetailClose = () => {
+    setShowDetail(false);
+    setSelectedOutfit(null);
   };
 
   const filteredOutfits = outfits.filter((outfit) => {
@@ -310,16 +281,39 @@ export default function Outfits() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredOutfits.map((outfit) => (
-            <OutfitCard
-              key={outfit.id}
-              outfit={outfit}
-              onToggleFavorite={() => toggleFavorite(outfit.id, outfit.is_favorite)}
-              onEdit={() => handleEdit(outfit)}
-              onDelete={() => handleDelete(outfit.id)}
-            />
+            <div key={outfit.id} onClick={() => handleViewOutfit(outfit)} className="cursor-pointer">
+              <OutfitCard
+                outfit={outfit}
+                onToggleFavorite={() => toggleFavorite(outfit.id, outfit.is_favorite)}
+                onEdit={() => handleEdit(outfit)}
+                onDelete={() => handleDelete(outfit.id)}
+              />
+            </div>
           ))}
         </div>
       )}
+
+      {/* Outfit Detail Dialog */}
+      <OutfitDetailDialog
+        outfit={selectedOutfit}
+        categories={categories}
+        open={showDetail}
+        onOpenChange={handleDetailClose}
+        onEdit={() => {
+          handleDetailClose();
+          if (selectedOutfit) handleEdit(selectedOutfit);
+        }}
+        onDelete={() => {
+          handleDetailClose();
+          if (selectedOutfit) handleDelete(selectedOutfit.id);
+        }}
+        onToggleFavorite={() => {
+          if (selectedOutfit) {
+            toggleFavorite(selectedOutfit.id, selectedOutfit.is_favorite);
+            setSelectedOutfit({ ...selectedOutfit, is_favorite: !selectedOutfit.is_favorite });
+          }
+        }}
+      />
 
       {/* Builder Dialog */}
       <Dialog open={showBuilder} onOpenChange={handleBuilderClose}>
