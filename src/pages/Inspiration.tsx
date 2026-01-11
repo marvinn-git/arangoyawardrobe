@@ -6,9 +6,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Plus, TrendingUp, Clock, Sparkles } from 'lucide-react';
+import { Search, Plus, TrendingUp, Clock, Sparkles, Heart } from 'lucide-react';
 import InspirationPostCard from '@/components/inspiration/InspirationPostCard';
 import CreatePostDialog from '@/components/inspiration/CreatePostDialog';
 
@@ -40,6 +39,7 @@ interface InspirationPost {
     name: string;
     image_url: string;
   };
+  relevanceScore?: number;
 }
 
 export default function Inspiration() {
@@ -50,20 +50,49 @@ export default function Inspiration() {
   const [posts, setPosts] = useState<InspirationPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'trending' | 'recent' | 'following'>('trending');
+  const [activeTab, setActiveTab] = useState<'foryou' | 'trending' | 'recent'>('foryou');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [userStyleTags, setUserStyleTags] = useState<string[]>([]);
+
+  // Fetch user's style tags on mount
+  useEffect(() => {
+    const fetchUserStyles = async () => {
+      if (!user) return;
+      
+      const { data } = await supabase
+        .from('user_style_tags')
+        .select('style_tag:style_tags(name)')
+        .eq('user_id', user.id);
+      
+      if (data) {
+        const tags = data
+          .map((item: any) => item.style_tag?.name?.toLowerCase())
+          .filter(Boolean);
+        setUserStyleTags(tags);
+      }
+    };
+    
+    fetchUserStyles();
+  }, [user]);
 
   const fetchPosts = useCallback(async () => {
     if (!user) return;
     setLoading(true);
 
     try {
-      // Fetch posts
-      const { data: postsData, error: postsError } = await supabase
+      // For "For You" tab, we need to prioritize posts from users with similar styles
+      let postsQuery = supabase
         .from('inspiration_posts')
         .select('*')
-        .order(activeTab === 'trending' ? 'likes_count' : 'created_at', { ascending: false })
-        .limit(50);
+        .limit(100); // Fetch more to allow for sorting
+      
+      if (activeTab === 'trending') {
+        postsQuery = postsQuery.order('likes_count', { ascending: false });
+      } else {
+        postsQuery = postsQuery.order('created_at', { ascending: false });
+      }
+
+      const { data: postsData, error: postsError } = await postsQuery;
       
       if (postsError) throw postsError;
       if (!postsData || postsData.length === 0) {
@@ -75,13 +104,36 @@ export default function Inspiration() {
       const userIds = [...new Set(postsData.map(p => p.user_id))];
       const { data: profilesData } = await supabase
         .from('profiles')
-        .select('user_id, username, avatar_url')
+        .select('user_id, username, avatar_url, style_preferences')
         .in('user_id', userIds);
       
-      const profilesMap: Record<string, Profile> = {};
+      const profilesMap: Record<string, Profile & { style_preferences?: string }> = {};
       if (profilesData) {
         for (const p of profilesData) {
-          profilesMap[p.user_id] = { username: p.username, avatar_url: p.avatar_url };
+          profilesMap[p.user_id] = { 
+            username: p.username, 
+            avatar_url: p.avatar_url,
+            style_preferences: p.style_preferences 
+          };
+        }
+      }
+
+      // Fetch style tags for all post authors to calculate relevance
+      const { data: authorStyleTags } = await supabase
+        .from('user_style_tags')
+        .select('user_id, style_tag:style_tags(name)')
+        .in('user_id', userIds);
+      
+      const authorStylesMap: Record<string, string[]> = {};
+      if (authorStyleTags) {
+        for (const tag of authorStyleTags) {
+          const tagName = (tag as any).style_tag?.name?.toLowerCase();
+          if (tagName) {
+            if (!authorStylesMap[tag.user_id]) {
+              authorStylesMap[tag.user_id] = [];
+            }
+            authorStylesMap[tag.user_id].push(tagName);
+          }
         }
       }
 
@@ -103,7 +155,7 @@ export default function Inspiration() {
       if (outfitIds.length > 0) {
         const { data: outfitsData } = await supabase
           .from('outfits')
-          .select('id, name, photo_url')
+          .select('id, name, photo_url, tags')
           .in('id', outfitIds);
         
         if (outfitsData) {
@@ -140,23 +192,77 @@ export default function Inspiration() {
         }
       }
 
-      const enrichedPosts: InspirationPost[] = postsData.map(post => ({
-        id: post.id,
-        user_id: post.user_id,
-        outfit_id: post.outfit_id,
-        clothing_item_id: post.clothing_item_id,
-        image_url: post.image_url,
-        caption: post.caption,
-        post_type: post.post_type as 'fit_check' | 'outfit' | 'clothing_item',
-        likes_count: post.likes_count ?? 0,
-        created_at: post.created_at,
-        profile: profilesMap[post.user_id],
-        hasLiked: likedPostIds.has(post.id),
-        outfit: post.outfit_id ? outfitsMap[post.outfit_id] : undefined,
-        clothing_item: post.clothing_item_id ? clothingMap[post.clothing_item_id] : undefined,
-      }));
+      // Calculate relevance score for each post based on matching style tags
+      const enrichedPosts: InspirationPost[] = postsData.map(post => {
+        const authorStyles = authorStylesMap[post.user_id] || [];
+        const outfitTags = post.outfit_id ? (outfitsMap[post.outfit_id]?.tags || []) : [];
+        
+        // Calculate how many style tags match between current user and post author
+        let relevanceScore = 0;
+        
+        if (userStyleTags.length > 0) {
+          // Match with author's style tags
+          for (const tag of authorStyles) {
+            if (userStyleTags.includes(tag)) {
+              relevanceScore += 3; // Strong match - same style preference
+            }
+          }
+          
+          // Match with outfit tags
+          for (const tag of outfitTags) {
+            if (userStyleTags.includes(tag?.toLowerCase())) {
+              relevanceScore += 2; // Match with outfit tag
+            }
+          }
+        }
+        
+        // Boost for popular posts
+        if (post.likes_count > 100) relevanceScore += 2;
+        else if (post.likes_count > 50) relevanceScore += 1;
+        
+        // Boost for recent posts (within last 3 days)
+        const daysAgo = (Date.now() - new Date(post.created_at).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysAgo < 1) relevanceScore += 3;
+        else if (daysAgo < 3) relevanceScore += 1;
 
-      setPosts(enrichedPosts);
+        return {
+          id: post.id,
+          user_id: post.user_id,
+          outfit_id: post.outfit_id,
+          clothing_item_id: post.clothing_item_id,
+          image_url: post.image_url,
+          caption: post.caption,
+          post_type: post.post_type as 'fit_check' | 'outfit' | 'clothing_item',
+          likes_count: post.likes_count ?? 0,
+          created_at: post.created_at,
+          profile: profilesMap[post.user_id],
+          hasLiked: likedPostIds.has(post.id),
+          outfit: post.outfit_id ? outfitsMap[post.outfit_id] : undefined,
+          clothing_item: post.clothing_item_id ? clothingMap[post.clothing_item_id] : undefined,
+          relevanceScore,
+        };
+      });
+
+      // Sort based on active tab
+      let sortedPosts: InspirationPost[];
+      if (activeTab === 'foryou') {
+        // Sort by relevance score (descending), then by recency
+        sortedPosts = enrichedPosts.sort((a, b) => {
+          const scoreA = a.relevanceScore || 0;
+          const scoreB = b.relevanceScore || 0;
+          if (scoreB !== scoreA) return scoreB - scoreA;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+      } else if (activeTab === 'trending') {
+        sortedPosts = enrichedPosts.sort((a, b) => b.likes_count - a.likes_count);
+      } else {
+        sortedPosts = enrichedPosts.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+      }
+
+      // Limit to 50 posts for display
+      setPosts(sortedPosts.slice(0, 50));
     } catch (error) {
       if (import.meta.env.DEV) {
         console.error('Error fetching posts:', error);
@@ -169,7 +275,7 @@ export default function Inspiration() {
     } finally {
       setLoading(false);
     }
-  }, [user, activeTab, language, toast]);
+  }, [user, activeTab, language, toast, userStyleTags]);
 
   useEffect(() => {
     fetchPosts();
@@ -264,6 +370,10 @@ export default function Inspiration() {
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
         <TabsList>
+          <TabsTrigger value="foryou" className="gap-2">
+            <Heart className="h-4 w-4" />
+            {language === 'es' ? 'Para ti' : 'For You'}
+          </TabsTrigger>
           <TabsTrigger value="trending" className="gap-2">
             <TrendingUp className="h-4 w-4" />
             {language === 'es' ? 'Tendencias' : 'Trending'}
