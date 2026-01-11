@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Shirt, LayoutGrid, User, LogOut, Globe, Menu } from 'lucide-react';
+import { Shirt, LayoutGrid, User, LogOut, Globe, Menu, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 
@@ -36,6 +36,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const navItems = [
     { to: '/', icon: Shirt, label: t('wardrobe') },
     { to: '/outfits', icon: LayoutGrid, label: t('outfits') },
+    { to: '/inspiration', icon: Sparkles, label: language === 'es' ? 'Inspiración' : 'Inspiration' },
     { to: '/profile', icon: User, label: t('profile') },
   ];
 

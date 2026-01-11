@@ -12,6 +12,7 @@ import OnboardingFlow from "@/components/onboarding/OnboardingFlow";
 import Auth from "@/pages/Auth";
 import Wardrobe from "@/pages/Wardrobe";
 import Outfits from "@/pages/Outfits";
+import Inspiration from "@/pages/Inspiration";
 import Profile from "@/pages/Profile";
 import NotFound from "@/pages/NotFound";
 
@@ -82,6 +83,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Outfits />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inspiration"
+        element={
+          <ProtectedRoute>
+            <Inspiration />
           </ProtectedRoute>
         }
       />
