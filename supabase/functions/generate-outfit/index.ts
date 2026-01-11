@@ -139,6 +139,18 @@ serve(async (req) => {
       return !item.categories?.is_top && !item.categories?.is_bottom && 
         !catName.includes("sneaker") && !catName.includes("boot") && !catName.includes("loafer") && !catName.includes("shoe") && !catName.includes("sandal");
     });
+    
+    // Separate jewelry from other accessories for better AI guidance
+    const jewelry = accessories.filter((item: any) => {
+      const catName = item.categories?.name?.toLowerCase() || "";
+      return catName.includes("ring") || catName.includes("chain") || catName.includes("necklace") || 
+             catName.includes("bracelet") || catName.includes("earring") || catName.includes("jewelry");
+    });
+    const otherAccessories = accessories.filter((item: any) => {
+      const catName = item.categories?.name?.toLowerCase() || "";
+      return !(catName.includes("ring") || catName.includes("chain") || catName.includes("necklace") || 
+               catName.includes("bracelet") || catName.includes("earring") || catName.includes("jewelry"));
+    });
 
     if (allTops.length === 0 || bottoms.length === 0) {
       return new Response(
@@ -153,10 +165,11 @@ serve(async (req) => {
 IMPORTANT GUIDELINES:
 1. ALWAYS include MULTIPLE tops when appropriate - combine a base layer (t-shirt) with mid-layer (sweater/hoodie) AND/OR outer layer (jacket/coat)
 2. Consider LAYERING based on weather - cold weather needs more layers, warm weather can be minimal
-3. Include footwear if available - it completes the look
-4. Add accessories that complement the style
+3. ALWAYS include footwear if available - it completes the look
+4. ALWAYS add accessories that complement the style - especially JEWELRY (rings, chains, necklaces, bracelets, watches), hats, belts, bags
 5. Consider color coordination and style coherence
-6. The outfit should have 4-8 pieces total for a complete look
+6. The outfit should have 4-10 pieces total for a complete, styled look - don't be minimal, accessorize generously!
+7. Include multiple accessories when available - a chain, a ring, and a watch can all work together
 
 USER'S STYLE PREFERENCES:
 ${styleTags.length > 0 ? `Style tags: ${styleTags.join(", ")}` : "No specific style tags"}
@@ -190,11 +203,15 @@ ${footwear.length > 0 ? `FOOTWEAR:
 ${footwear.map((f: any) => `- ${f.name} (${f.color || "no color"}, ${f.brand || "no brand"}) [ID: ${f.id}]`).join("\n")}
 ` : ""}
 
-${accessories.length > 0 ? `ACCESSORIES (Hats, Watches, Chains, Belts, Bags, etc.):
-${accessories.map((a: any) => `- ${a.name} (${a.color || "no color"}, ${a.brand || "no brand"}, Category: ${a.categories?.name}) [ID: ${a.id}]`).join("\n")}
+${jewelry.length > 0 ? `JEWELRY (Rings, Chains, Necklaces, Bracelets - ADD MULTIPLE!):
+${jewelry.map((j: any) => `- ${j.name} (${j.color || "no color"}, ${j.brand || "no brand"}, Category: ${j.categories?.name}) [ID: ${j.id}]`).join("\n")}
 ` : ""}
 
-Create a stylish, cohesive outfit using the suggest_outfit function. Remember to LAYER appropriately!`;
+${otherAccessories.length > 0 ? `OTHER ACCESSORIES (Hats, Watches, Belts, Bags, Sunglasses, etc.):
+${otherAccessories.map((a: any) => `- ${a.name} (${a.color || "no color"}, ${a.brand || "no brand"}, Category: ${a.categories?.name}) [ID: ${a.id}]`).join("\n")}
+` : ""}
+
+Create a stylish, cohesive outfit using the suggest_outfit function. Remember to LAYER appropriately and ADD JEWELRY/ACCESSORIES generously!`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -210,7 +227,7 @@ Create a stylish, cohesive outfit using the suggest_outfit function. Remember to
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You are an expert fashion stylist. Create complete, layered outfits that look cohesive and stylish. Always use the provided function to return your outfit selection. Think about how pieces work together - colors, textures, and overall vibe." },
+          { role: "system", content: "You are an expert fashion stylist. Create complete, layered outfits with 4-10 pieces that look cohesive and stylish. ALWAYS include footwear and MULTIPLE accessories including jewelry (rings, chains, necklaces). Think about how pieces work together - colors, textures, and overall vibe. Be generous with accessories!" },
           { role: "user", content: prompt },
         ],
         tools: [
