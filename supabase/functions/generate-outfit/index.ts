@@ -13,8 +13,11 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("Missing authorization header");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -26,10 +29,37 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
-      throw new Error("Unauthorized");
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    const { occasion, weather, mood, extraDetails, excludeItemIds } = await req.json();
+    // Parse and validate request body
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Invalid request body" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Input validation
+    const occasion = typeof body.occasion === "string" ? body.occasion.slice(0, 200) : "";
+    const weather = typeof body.weather === "string" ? body.weather.slice(0, 100) : "";
+    const mood = typeof body.mood === "string" ? body.mood.slice(0, 100) : "";
+    const extraDetails = typeof body.extraDetails === "string" ? body.extraDetails.slice(0, 500) : "";
+    
+    // Validate excludeItemIds as array of UUIDs
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let excludeItemIds: string[] = [];
+    if (Array.isArray(body.excludeItemIds)) {
+      excludeItemIds = body.excludeItemIds.filter(
+        (id): id is string => typeof id === "string" && uuidRegex.test(id)
+      ).slice(0, 100);
+    }
 
     // Fetch user's clothing items
     const { data: clothingItems, error: clothingError } = await supabase

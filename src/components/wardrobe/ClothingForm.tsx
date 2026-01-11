@@ -108,11 +108,17 @@ export default function ClothingForm({
       return null;
     }
 
-    const { data: urlData } = supabase.storage
+    // Get signed URL for private bucket access (1 year expiry)
+    const { data: urlData, error: signedError } = await supabase.storage
       .from('clothing-images')
-      .getPublicUrl(data.path);
+      .createSignedUrl(data.path, 31536000); // 1 year in seconds
 
-    return urlData.publicUrl;
+    if (signedError || !urlData?.signedUrl) {
+      console.error('Signed URL error:', signedError);
+      return null;
+    }
+
+    return urlData.signedUrl;
   };
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>, isWearing: boolean) => {
