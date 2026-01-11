@@ -90,8 +90,8 @@ export default function OutfitDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0">
+        <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               <DialogTitle className="font-display text-xl truncate">
@@ -119,8 +119,8 @@ export default function OutfitDetailDialog({
           </div>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
-          <div className="space-y-6 pb-4">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6">
+          <div className="space-y-6 pb-4 pr-2">
             {/* Main outfit preview */}
             {outfit.photo_url ? (
               <div className="aspect-[4/3] rounded-xl overflow-hidden bg-secondary">
@@ -273,10 +273,10 @@ export default function OutfitDetailDialog({
               )}
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Actions */}
-        <div className="flex gap-2 pt-4 border-t flex-shrink-0">
+        <div className="flex gap-2 p-6 pt-4 border-t flex-shrink-0">
           <Button variant="outline" onClick={onEdit} className="flex-1 gap-2">
             <Pencil className="h-4 w-4" />
             {language === 'es' ? 'Editar' : 'Edit'}
