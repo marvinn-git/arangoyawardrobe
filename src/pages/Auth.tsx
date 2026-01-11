@@ -126,7 +126,9 @@ export default function Auth() {
       }
     } catch (err) {
       // Catch any unexpected errors including network failures
-      console.error('Auth error:', err);
+      if (import.meta.env.DEV) {
+        console.error('Auth error:', err);
+      }
       toast({
         title: language === 'es' ? 'Error de conexión' : 'Connection Error',
         description: language === 'es' 

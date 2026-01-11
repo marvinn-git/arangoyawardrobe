@@ -104,17 +104,21 @@ export default function ClothingForm({
       .upload(path, file, { upsert: true });
     
     if (error) {
-      console.error('Upload error:', error);
+      if (import.meta.env.DEV) {
+        console.error('Upload error:', error);
+      }
       return null;
     }
 
-    // Get signed URL for private bucket access (1 year expiry)
+    // Get signed URL for private bucket access (1 hour expiry for security)
     const { data: urlData, error: signedError } = await supabase.storage
       .from('clothing-images')
-      .createSignedUrl(data.path, 31536000); // 1 year in seconds
+      .createSignedUrl(data.path, 3600); // 1 hour in seconds
 
     if (signedError || !urlData?.signedUrl) {
-      console.error('Signed URL error:', signedError);
+      if (import.meta.env.DEV) {
+        console.error('Signed URL error:', signedError);
+      }
       return null;
     }
 

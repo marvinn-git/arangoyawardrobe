@@ -158,7 +158,9 @@ export default function Inspiration() {
 
       setPosts(enrichedPosts);
     } catch (error) {
-      console.error('Error fetching posts:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error fetching posts:', error);
+      }
       toast({
         title: language === 'es' ? 'Error' : 'Error',
         description: language === 'es' ? 'No se pudieron cargar las publicaciones' : 'Failed to load posts',
@@ -201,7 +203,9 @@ export default function Inspiration() {
         return post;
       }));
     } catch (error) {
-      console.error('Error toggling like:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error toggling like:', error);
+      }
     }
   };
 

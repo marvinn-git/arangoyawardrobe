@@ -119,7 +119,9 @@ export default function Wardrobe() {
       if (clothesRes.data) setClothes(clothesRes.data);
       if (categoriesRes.data) setCategories(categoriesRes.data);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error fetching data:', error);
+      }
     } finally {
       setLoading(false);
     }
