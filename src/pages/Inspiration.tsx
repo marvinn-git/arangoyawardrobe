@@ -1,0 +1,318 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Search, Plus, TrendingUp, Clock, Sparkles } from 'lucide-react';
+import InspirationPostCard from '@/components/inspiration/InspirationPostCard';
+import CreatePostDialog from '@/components/inspiration/CreatePostDialog';
+
+interface Profile {
+  username: string | null;
+  avatar_url: string | null;
+}
+
+interface InspirationPost {
+  id: string;
+  user_id: string;
+  outfit_id: string | null;
+  clothing_item_id: string | null;
+  image_url: string | null;
+  caption: string | null;
+  post_type: 'fit_check' | 'outfit' | 'clothing_item';
+  likes_count: number;
+  created_at: string;
+  profile?: Profile;
+  hasLiked?: boolean;
+  outfit?: {
+    id: string;
+    name: string;
+    photo_url: string | null;
+    items: { id: string; name: string; image_url: string }[];
+  };
+  clothing_item?: {
+    id: string;
+    name: string;
+    image_url: string;
+  };
+}
+
+export default function Inspiration() {
+  const { user } = useAuth();
+  const { language } = useLanguage();
+  const { toast } = useToast();
+  
+  const [posts, setPosts] = useState<InspirationPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'trending' | 'recent' | 'following'>('trending');
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+
+  const fetchPosts = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+
+    try {
+      // Fetch posts
+      const { data: postsData, error: postsError } = await supabase
+        .from('inspiration_posts')
+        .select('*')
+        .order(activeTab === 'trending' ? 'likes_count' : 'created_at', { ascending: false })
+        .limit(50);
+      
+      if (postsError) throw postsError;
+      if (!postsData || postsData.length === 0) {
+        setPosts([]);
+        return;
+      }
+
+      // Fetch profiles for post authors
+      const userIds = [...new Set(postsData.map(p => p.user_id))];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('user_id, username, avatar_url')
+        .in('user_id', userIds);
+      
+      const profilesMap: Record<string, Profile> = {};
+      if (profilesData) {
+        for (const p of profilesData) {
+          profilesMap[p.user_id] = { username: p.username, avatar_url: p.avatar_url };
+        }
+      }
+
+      // Fetch user's likes
+      const { data: likesData } = await supabase
+        .from('inspiration_likes')
+        .select('post_id')
+        .eq('user_id', user.id);
+
+      const likedPostIds = new Set(likesData?.map(l => l.post_id) || []);
+
+      // Fetch related outfits and clothing items
+      const outfitIds = postsData.filter(p => p.outfit_id).map(p => p.outfit_id as string);
+      const clothingIds = postsData.filter(p => p.clothing_item_id).map(p => p.clothing_item_id as string);
+
+      const outfitsMap: Record<string, any> = {};
+      const clothingMap: Record<string, any> = {};
+
+      if (outfitIds.length > 0) {
+        const { data: outfitsData } = await supabase
+          .from('outfits')
+          .select('id, name, photo_url')
+          .in('id', outfitIds);
+        
+        if (outfitsData) {
+          for (const outfit of outfitsData) {
+            outfitsMap[outfit.id] = { ...outfit, items: [] };
+          }
+
+          // Fetch outfit items
+          const { data: outfitItemsData } = await supabase
+            .from('outfit_items')
+            .select('outfit_id, clothing_item:clothing_items(id, name, image_url)')
+            .in('outfit_id', outfitIds);
+
+          if (outfitItemsData) {
+            for (const oi of outfitItemsData) {
+              if (outfitsMap[oi.outfit_id] && oi.clothing_item) {
+                outfitsMap[oi.outfit_id].items.push(oi.clothing_item);
+              }
+            }
+          }
+        }
+      }
+
+      if (clothingIds.length > 0) {
+        const { data: clothingData } = await supabase
+          .from('clothing_items')
+          .select('id, name, image_url')
+          .in('id', clothingIds);
+        
+        if (clothingData) {
+          for (const item of clothingData) {
+            clothingMap[item.id] = item;
+          }
+        }
+      }
+
+      const enrichedPosts: InspirationPost[] = postsData.map(post => ({
+        id: post.id,
+        user_id: post.user_id,
+        outfit_id: post.outfit_id,
+        clothing_item_id: post.clothing_item_id,
+        image_url: post.image_url,
+        caption: post.caption,
+        post_type: post.post_type as 'fit_check' | 'outfit' | 'clothing_item',
+        likes_count: post.likes_count ?? 0,
+        created_at: post.created_at,
+        profile: profilesMap[post.user_id],
+        hasLiked: likedPostIds.has(post.id),
+        outfit: post.outfit_id ? outfitsMap[post.outfit_id] : undefined,
+        clothing_item: post.clothing_item_id ? clothingMap[post.clothing_item_id] : undefined,
+      }));
+
+      setPosts(enrichedPosts);
+    } catch (error) {
+      console.error('Error fetching posts:', error);
+      toast({
+        title: language === 'es' ? 'Error' : 'Error',
+        description: language === 'es' ? 'No se pudieron cargar las publicaciones' : 'Failed to load posts',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [user, activeTab, language, toast]);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts]);
+
+  const handleLike = async (postId: string, hasLiked: boolean) => {
+    if (!user) return;
+
+    try {
+      if (hasLiked) {
+        await supabase
+          .from('inspiration_likes')
+          .delete()
+          .eq('post_id', postId)
+          .eq('user_id', user.id);
+      } else {
+        await supabase
+          .from('inspiration_likes')
+          .insert({ post_id: postId, user_id: user.id });
+      }
+
+      // Update local state
+      setPosts(prev => prev.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            hasLiked: !hasLiked,
+            likes_count: hasLiked ? post.likes_count - 1 : post.likes_count + 1,
+          };
+        }
+        return post;
+      }));
+    } catch (error) {
+      console.error('Error toggling like:', error);
+    }
+  };
+
+  const handlePostCreated = () => {
+    setShowCreateDialog(false);
+    fetchPosts();
+    toast({
+      title: language === 'es' ? '¡Publicado!' : 'Posted!',
+      description: language === 'es' ? 'Tu publicación está en vivo' : 'Your post is live',
+    });
+  };
+
+  const filteredPosts = posts.filter(post => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      post.caption?.toLowerCase().includes(query) ||
+      post.profile?.username?.toLowerCase().includes(query) ||
+      post.outfit?.name?.toLowerCase().includes(query) ||
+      post.clothing_item?.name?.toLowerCase().includes(query)
+    );
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-3xl font-display font-bold">
+            {language === 'es' ? 'Inspiración' : 'Inspiration'}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {language === 'es' 
+              ? 'Descubre outfits y estilos de la comunidad' 
+              : 'Discover outfits and styles from the community'}
+          </p>
+        </div>
+
+        <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
+          <Plus className="h-4 w-4" />
+          {language === 'es' ? 'Publicar' : 'Post'}
+        </Button>
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder={language === 'es' ? 'Buscar inspiración...' : 'Search inspiration...'}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+        <TabsList>
+          <TabsTrigger value="trending" className="gap-2">
+            <TrendingUp className="h-4 w-4" />
+            {language === 'es' ? 'Tendencias' : 'Trending'}
+          </TabsTrigger>
+          <TabsTrigger value="recent" className="gap-2">
+            <Clock className="h-4 w-4" />
+            {language === 'es' ? 'Reciente' : 'Recent'}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={activeTab} className="mt-6">
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
+              ))}
+            </div>
+          ) : filteredPosts.length === 0 ? (
+            <div className="text-center py-16">
+              <Sparkles className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium">
+                {language === 'es' ? 'Sin publicaciones aún' : 'No posts yet'}
+              </h3>
+              <p className="text-muted-foreground mt-1">
+                {language === 'es' 
+                  ? '¡Sé el primero en compartir tu estilo!' 
+                  : 'Be the first to share your style!'}
+              </p>
+              <Button onClick={() => setShowCreateDialog(true)} className="mt-4">
+                {language === 'es' ? 'Crear publicación' : 'Create post'}
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredPosts.map((post) => (
+                <InspirationPostCard
+                  key={post.id}
+                  post={post}
+                  onLike={() => handleLike(post.id, post.hasLiked || false)}
+                  currentUserId={user?.id}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Create Post Dialog */}
+      <CreatePostDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onSuccess={handlePostCreated}
+      />
+    </div>
+  );
+}

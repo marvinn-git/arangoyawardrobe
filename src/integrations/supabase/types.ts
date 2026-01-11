@@ -78,6 +78,7 @@ export type Database = {
           image_url: string
           is_accessory: boolean | null
           is_favorite: boolean | null
+          is_public: boolean | null
           name: string
           notes: string | null
           size: string | null
@@ -95,6 +96,7 @@ export type Database = {
           image_url: string
           is_accessory?: boolean | null
           is_favorite?: boolean | null
+          is_public?: boolean | null
           name: string
           notes?: string | null
           size?: string | null
@@ -112,6 +114,7 @@ export type Database = {
           image_url?: string
           is_accessory?: boolean | null
           is_favorite?: boolean | null
+          is_public?: boolean | null
           name?: string
           notes?: string | null
           size?: string | null
@@ -126,6 +129,89 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspiration_likes: {
+        Row: {
+          created_at: string
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspiration_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "inspiration_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspiration_posts: {
+        Row: {
+          caption: string | null
+          clothing_item_id: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          likes_count: number | null
+          outfit_id: string | null
+          post_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          caption?: string | null
+          clothing_item_id?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          likes_count?: number | null
+          outfit_id?: string | null
+          post_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          caption?: string | null
+          clothing_item_id?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          likes_count?: number | null
+          outfit_id?: string | null
+          post_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspiration_posts_clothing_item_id_fkey"
+            columns: ["clothing_item_id"]
+            isOneToOne: false
+            referencedRelation: "clothing_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspiration_posts_outfit_id_fkey"
+            columns: ["outfit_id"]
+            isOneToOne: false
+            referencedRelation: "outfits"
             referencedColumns: ["id"]
           },
         ]
@@ -171,6 +257,7 @@ export type Database = {
           created_at: string
           id: string
           is_favorite: boolean | null
+          is_public: boolean | null
           name: string
           notes: string | null
           photo_url: string | null
@@ -182,6 +269,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_favorite?: boolean | null
+          is_public?: boolean | null
           name: string
           notes?: string | null
           photo_url?: string | null
@@ -193,6 +281,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_favorite?: boolean | null
+          is_public?: boolean | null
           name?: string
           notes?: string | null
           photo_url?: string | null
@@ -214,6 +303,7 @@ export type Database = {
           style_preferences: string | null
           updated_at: string
           user_id: string
+          username: string | null
           weight_kg: number | null
           year_of_birth: number | null
         }
@@ -228,6 +318,7 @@ export type Database = {
           style_preferences?: string | null
           updated_at?: string
           user_id: string
+          username?: string | null
           weight_kg?: number | null
           year_of_birth?: number | null
         }
@@ -242,6 +333,7 @@ export type Database = {
           style_preferences?: string | null
           updated_at?: string
           user_id?: string
+          username?: string | null
           weight_kg?: number | null
           year_of_birth?: number | null
         }
