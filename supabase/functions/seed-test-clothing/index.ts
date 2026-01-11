@@ -142,7 +142,7 @@ serve(async (req) => {
 
     const existingNames = new Set((existingItems || []).map((item: any) => item.name.toLowerCase()));
 
-    // MASSIVE pool of men's clothing items - diverse styles
+    // MASSIVE pool of men's clothing items - diverse styles with emphasis on baggy/oversized fits
     const allClothingItems = [
       // === T-SHIRTS ===
       { name: "White Essential Tee", color: "White", brand: "Uniqlo", categoryName: "T-Shirt", description: "a plain white cotton crew neck t-shirt for men, minimalist style" },
@@ -152,9 +152,11 @@ serve(async (req) => {
       { name: "Vintage Band Tee - Faded", color: "Faded Black", brand: "Vintage", categoryName: "T-Shirt", description: "a faded black vintage rock band t-shirt with cracked print" },
       { name: "Olive Military Tee", color: "Olive", brand: "Alpha Industries", categoryName: "T-Shirt", description: "an olive green military style cotton t-shirt for men" },
       { name: "Tie-Dye Purple Tee", color: "Purple", brand: "Stussy", categoryName: "T-Shirt", description: "a purple and white tie-dye pattern t-shirt for men" },
-      { name: "Charcoal V-Neck Tee", color: "Charcoal", brand: "COS", categoryName: "T-Shirt", description: "a charcoal gray v-neck t-shirt, slim fit for men" },
-      { name: "Rust Pocket Tee", color: "Rust", brand: "Patagonia", categoryName: "T-Shirt", description: "a rust colored cotton pocket t-shirt for men" },
       { name: "Cream Heavyweight Tee", color: "Cream", brand: "Lady White Co", categoryName: "T-Shirt", description: "a cream heavyweight cotton t-shirt, boxy fit for men" },
+      { name: "Oversized Washed Black Tee", color: "Washed Black", brand: "Yeezy Gap", categoryName: "T-Shirt", description: "an oversized washed black cotton t-shirt for men, super baggy fit" },
+      { name: "Double Layer Long Sleeve Tee", color: "Black/White", brand: "Rick Owens", categoryName: "T-Shirt", description: "a double layered long sleeve t-shirt in black and white for men, oversized" },
+      { name: "Vintage Washed Navy Tee", color: "Washed Navy", brand: "Stussy", categoryName: "T-Shirt", description: "a vintage washed navy blue oversized t-shirt for men" },
+      { name: "Oversized Pocket Tee", color: "Sand", brand: "Auralee", categoryName: "T-Shirt", description: "a sand colored oversized pocket t-shirt for men, Japanese minimalist" },
       
       // === SHIRTS ===
       { name: "Oxford Blue Button-Down", color: "Light Blue", brand: "Ralph Lauren", categoryName: "Shirt", description: "a classic light blue oxford button-down shirt for men" },
@@ -164,21 +166,26 @@ serve(async (req) => {
       { name: "Bowling Shirt - Retro", color: "Teal/Cream", brand: "Wacko Maria", categoryName: "Shirt", description: "a retro bowling shirt with teal and cream colorblock for men" },
       { name: "Denim Western Shirt", color: "Medium Wash", brand: "Levi's", categoryName: "Shirt", description: "a medium wash denim western shirt with pearl snaps for men" },
       { name: "Camp Collar Hawaiian", color: "Tropical Print", brand: "Gitman Vintage", categoryName: "Shirt", description: "a tropical print camp collar hawaiian shirt for men" },
-      { name: "Pink Oxford Shirt", color: "Pink", brand: "Brooks Brothers", categoryName: "Shirt", description: "a light pink oxford cloth button-down shirt for men" },
-      { name: "Chambray Work Shirt", color: "Indigo", brand: "Engineered Garments", categoryName: "Shirt", description: "an indigo chambray work shirt with two chest pockets for men" },
-      { name: "Black Band Collar Shirt", color: "Black", brand: "COS", categoryName: "Shirt", description: "a black minimalist band collar shirt for men" },
+      { name: "Oversized Poplin Shirt", color: "White", brand: "Lemaire", categoryName: "Shirt", description: "an oversized white poplin shirt for men with dropped shoulders and relaxed silhouette" },
+      { name: "Striped Oversized Shirt", color: "Blue/White", brand: "Our Legacy", categoryName: "Shirt", description: "a blue and white striped oversized cotton shirt for men, boxy cut" },
+      { name: "Satin Camp Collar Shirt", color: "Burgundy", brand: "Celine", categoryName: "Shirt", description: "a burgundy satin camp collar shirt for men, relaxed fit" },
       
       // === SWEATERS & HOODIES ===
       { name: "Heather Gray Crewneck", color: "Heather Gray", brand: "Champion", categoryName: "Sweater", description: "a classic heather gray crewneck sweatshirt for men" },
       { name: "Navy Cable Knit Sweater", color: "Navy", brand: "J.Crew", categoryName: "Sweater", description: "a navy blue cable knit wool sweater for men" },
-      { name: "Oversized Cream Hoodie", color: "Cream", brand: "Yeezy", categoryName: "Hoodie", description: "an oversized cream colored heavyweight hoodie for men" },
+      { name: "Oversized Cream Hoodie", color: "Cream", brand: "Yeezy", categoryName: "Hoodie", description: "an oversized cream colored heavyweight hoodie for men, super baggy" },
       { name: "Black Zip-Up Hoodie", color: "Black", brand: "Nike Tech Fleece", categoryName: "Hoodie", description: "a black Nike tech fleece full-zip hoodie for men" },
       { name: "Burgundy Mohair Sweater", color: "Burgundy", brand: "Marni", categoryName: "Sweater", description: "a fuzzy burgundy mohair blend sweater for men, oversized" },
       { name: "Striped Cardigan", color: "Multicolor", brand: "Marni", categoryName: "Sweater", description: "a multicolor striped oversized cardigan sweater for men" },
-      { name: "Sage Green Hoodie", color: "Sage", brand: "Carhartt WIP", categoryName: "Hoodie", description: "a sage green heavyweight hoodie with kangaroo pocket for men" },
-      { name: "Brown Varsity Sweater", color: "Brown/Cream", brand: "Rhude", categoryName: "Sweater", description: "a brown and cream varsity style knit sweater for men" },
-      { name: "Oatmeal Fisherman Sweater", color: "Oatmeal", brand: "Aran Crafts", categoryName: "Sweater", description: "an oatmeal colored Irish fisherman cable knit sweater for men" },
-      { name: "Forest Green Hoodie", color: "Forest Green", brand: "Reigning Champ", categoryName: "Hoodie", description: "a forest green midweight terry hoodie for men" },
+      { name: "Sage Green Hoodie", color: "Sage", brand: "Carhartt WIP", categoryName: "Hoodie", description: "a sage green heavyweight hoodie with kangaroo pocket for men, oversized" },
+      { name: "Oatmeal Fisherman Sweater", color: "Oatmeal", brand: "Aran Crafts", categoryName: "Sweater", description: "an oatmeal colored Irish fisherman cable knit sweater for men, oversized" },
+      { name: "Forest Green Hoodie", color: "Forest Green", brand: "Reigning Champ", categoryName: "Hoodie", description: "a forest green midweight terry hoodie for men, relaxed fit" },
+      { name: "Washed Brown Boxy Hoodie", color: "Washed Brown", brand: "Fear of God", categoryName: "Hoodie", description: "a washed brown boxy oversized hoodie for men with dropped shoulders" },
+      { name: "Double Layer Hoodie", color: "Black", brand: "Balenciaga", categoryName: "Hoodie", description: "a black double layer oversized hoodie for men, extremely baggy" },
+      { name: "Balaclava Hoodie", color: "Charcoal", brand: "Rick Owens DRKSHDW", categoryName: "Hoodie", description: "a charcoal gray balaclava hoodie for men with integrated face covering, oversized" },
+      { name: "Cropped Boxy Sweater", color: "Ivory", brand: "Jil Sander", categoryName: "Sweater", description: "an ivory cropped boxy knit sweater for men, minimalist oversized" },
+      { name: "Distressed Knit Sweater", color: "Black", brand: "Raf Simons", categoryName: "Sweater", description: "a distressed black knit sweater for men with intentional holes, oversized" },
+      { name: "Patchwork Cardigan", color: "Multicolor", brand: "Bode", categoryName: "Sweater", description: "a vintage patchwork quilted cardigan for men, relaxed artisanal style" },
       
       // === JACKETS & COATS ===
       { name: "Classic Denim Jacket", color: "Medium Wash", brand: "Levi's", categoryName: "Jacket", description: "a classic medium wash blue denim trucker jacket for men" },
@@ -187,45 +194,42 @@ serve(async (req) => {
       { name: "Camel Overcoat", color: "Camel", brand: "A.P.C.", categoryName: "Coat", description: "a camel colored wool overcoat for men, mid-length classic cut" },
       { name: "Black Puffer Jacket", color: "Black", brand: "The North Face", categoryName: "Jacket", description: "a black 700-fill down puffer jacket for men, Nuptse style" },
       { name: "Olive M-65 Field Jacket", color: "Olive", brand: "Alpha Industries", categoryName: "Jacket", description: "an olive green M-65 military field jacket for men with brass hardware" },
-      { name: "Cream Teddy Fleece Jacket", color: "Cream", brand: "Patagonia", categoryName: "Jacket", description: "a cream colored teddy fleece zip jacket for men" },
-      { name: "Navy Blazer - Double Breasted", color: "Navy", brand: "Hugo Boss", categoryName: "Blazer", description: "a navy blue double-breasted wool blazer for men with gold buttons" },
-      { name: "Checked Overcoat", color: "Gray Check", brand: "Cos", categoryName: "Coat", description: "a gray checked oversized wool overcoat for men" },
-      { name: "Varsity Jacket - Leather Sleeves", color: "Black/White", brand: "Golden Bear", categoryName: "Jacket", description: "a black and white varsity jacket for men with leather sleeves" },
-      { name: "Corduroy Trucker Jacket", color: "Tan", brand: "Carhartt WIP", categoryName: "Jacket", description: "a tan corduroy trucker jacket for men with sherpa lining" },
-      { name: "Track Jacket - Retro", color: "Red/White", brand: "Adidas Originals", categoryName: "Jacket", description: "a red and white retro Adidas track jacket for men with three stripes" },
-      { name: "Waxed Canvas Chore Coat", color: "Olive", brand: "Barbour", categoryName: "Jacket", description: "an olive waxed canvas chore coat for men" },
-      { name: "Black Wool Peacoat", color: "Black", brand: "Schott", categoryName: "Coat", description: "a black double-breasted wool peacoat for men" },
+      { name: "Cream Teddy Fleece Jacket", color: "Cream", brand: "Patagonia", categoryName: "Jacket", description: "a cream colored teddy fleece zip jacket for men, oversized" },
+      { name: "Oversized Denim Jacket", color: "Light Wash", brand: "Raf Simons", categoryName: "Jacket", description: "a light wash oversized denim jacket for men with dropped shoulders" },
+      { name: "Padded Workwear Jacket", color: "Olive", brand: "Carhartt WIP", categoryName: "Jacket", description: "an olive padded workwear jacket for men, boxy oversized fit" },
+      { name: "Oversized Puffer", color: "Cream", brand: "Maison Margiela", categoryName: "Jacket", description: "a cream colored oversized puffer jacket for men, duvet-like silhouette" },
+      { name: "Long Black Trench", color: "Black", brand: "Vetements", categoryName: "Coat", description: "a black oversized leather trench coat for men, extra long" },
+      { name: "Shearling Jacket", color: "Brown", brand: "Acne Studios", categoryName: "Jacket", description: "a brown shearling aviator jacket for men, oversized relaxed fit" },
+      { name: "Waxed Canvas Chore Coat", color: "Navy", brand: "Barbour", categoryName: "Jacket", description: "a navy waxed canvas chore coat for men, baggy fit" },
+      { name: "Quilted Liner Jacket", color: "Olive", brand: "Engineered Garments", categoryName: "Jacket", description: "an olive quilted liner jacket for men, oversized layering piece" },
       
-      // === JEANS ===
+      // === JEANS - BAGGY FOCUS ===
       { name: "Slim Black Jeans", color: "Black", brand: "Acne Studios", categoryName: "Jeans", description: "slim fit black denim jeans for men, clean minimal look" },
       { name: "Light Wash Baggy Jeans", color: "Light Wash", brand: "Levi's 550", categoryName: "Jeans", description: "light wash baggy relaxed fit jeans for men, 90s style" },
-      { name: "Raw Selvedge Denim", color: "Indigo", brand: "A.P.C. Petit Standard", categoryName: "Jeans", description: "raw indigo selvedge denim jeans for men, slim straight fit" },
-      { name: "Distressed Blue Jeans", color: "Medium Wash", brand: "Amiri", categoryName: "Jeans", description: "medium wash distressed jeans for men with rips at knees" },
-      { name: "Wide Leg Carpenter Jeans", color: "Dark Wash", brand: "Carhartt WIP", categoryName: "Jeans", description: "dark wash wide leg carpenter jeans for men with tool loop" },
-      { name: "Cream Straight Leg Jeans", color: "Cream", brand: "Agolde", categoryName: "Jeans", description: "cream colored straight leg jeans for men" },
-      { name: "Vintage Faded Jeans", color: "Vintage Blue", brand: "Re/Done", categoryName: "Jeans", description: "vintage faded blue relaxed jeans for men" },
-      { name: "Black Skinny Jeans", color: "Black", brand: "Saint Laurent", categoryName: "Jeans", description: "black skinny fit jeans for men, rock n roll style" },
+      { name: "Ultra Baggy Blue Jeans", color: "Medium Wash", brand: "Balenciaga", categoryName: "Jeans", description: "ultra baggy medium wash blue jeans for men, extremely wide leg" },
+      { name: "Distressed Wide Leg Jeans", color: "Light Wash", brand: "Gallery Dept", categoryName: "Jeans", description: "light wash distressed wide leg jeans for men with paint splatter" },
+      { name: "Dark Indigo Loose Jeans", color: "Dark Indigo", brand: "Orslow", categoryName: "Jeans", description: "dark indigo loose fit Japanese denim jeans for men" },
+      { name: "Vintage Baggy Jeans", color: "Faded Blue", brand: "Vintage Levi's 560", categoryName: "Jeans", description: "faded blue vintage baggy jeans for men, 90s silhouette" },
+      { name: "Double Knee Wide Jeans", color: "Washed Black", brand: "Carhartt WIP", categoryName: "Jeans", description: "washed black double knee wide leg jeans for men" },
+      { name: "Carpenter Baggy Jeans", color: "Medium Wash", brand: "Dickies", categoryName: "Jeans", description: "medium wash baggy carpenter jeans for men with hammer loop" },
+      { name: "Stacked Baggy Jeans", color: "Light Wash", brand: "Purple Brand", categoryName: "Jeans", description: "light wash stacked baggy jeans for men with heavy stacking at ankles" },
+      { name: "Raw Denim Wide Leg", color: "Raw Indigo", brand: "Kapital", categoryName: "Jeans", description: "raw indigo wide leg selvedge jeans for men, Japanese workwear" },
+      { name: "Cream Baggy Jeans", color: "Cream", brand: "Agolde", categoryName: "Jeans", description: "cream colored baggy relaxed jeans for men" },
+      { name: "Patchwork Baggy Jeans", color: "Mixed Denim", brand: "Kapital", categoryName: "Jeans", description: "patchwork mixed denim baggy jeans for men, artisanal style" },
       
-      // === PANTS ===
-      { name: "Black Wide Leg Trousers", color: "Black", brand: "Lemaire", categoryName: "Pants", description: "black wide leg pleated wool trousers for men" },
-      { name: "Khaki Chinos", color: "Khaki", brand: "Dockers", categoryName: "Chinos", description: "classic khaki colored cotton chino pants for men, slim fit" },
+      // === PANTS - BAGGY FOCUS ===
+      { name: "Black Wide Leg Trousers", color: "Black", brand: "Lemaire", categoryName: "Pants", description: "black wide leg pleated wool trousers for men, super wide" },
       { name: "Black Cargo Pants - Oversized", color: "Black", brand: "Rick Owens DRKSHDW", categoryName: "Cargo Pants", description: "black oversized cargo pants for men with multiple pockets" },
       { name: "Olive Parachute Pants", color: "Olive", brand: "Represent", categoryName: "Cargo Pants", description: "olive green parachute cargo pants for men with drawstring ankles" },
-      { name: "Navy Tailored Trousers", color: "Navy", brand: "Theory", categoryName: "Pants", description: "navy blue tailored wool trousers for men, pressed crease" },
-      { name: "Brown Corduroy Pants", color: "Brown", brand: "Corridor NYC", categoryName: "Pants", description: "brown wide wale corduroy pants for men, relaxed fit" },
-      { name: "Gray Sweatpants - Heavyweight", color: "Gray", brand: "Essentials", categoryName: "Joggers", description: "gray heavyweight cotton sweatpants for men, relaxed fit" },
-      { name: "Black Track Pants", color: "Black", brand: "Nike", categoryName: "Joggers", description: "black Nike track pants for men with white stripe" },
-      { name: "Beige Pleated Pants", color: "Beige", brand: "Ami Paris", categoryName: "Pants", description: "beige pleated wool pants for men, cropped length" },
-      { name: "Stone Cargo Shorts", color: "Stone", brand: "Carhartt WIP", categoryName: "Shorts", description: "stone colored cotton cargo shorts for men with multiple pockets" },
-      { name: "Charcoal Dress Pants", color: "Charcoal", brand: "Suitsupply", categoryName: "Pants", description: "charcoal gray wool dress pants for men, slim fit" },
-      
-      // === SHORTS ===
-      { name: "Navy Athletic Shorts", color: "Navy", brand: "Nike Dri-FIT", categoryName: "Shorts", description: "navy blue Nike athletic shorts for men with mesh lining" },
-      { name: "Khaki Bermuda Shorts", color: "Khaki", brand: "Ralph Lauren", categoryName: "Shorts", description: "khaki colored bermuda length cotton shorts for men" },
-      { name: "Black Nylon Shorts", color: "Black", brand: "Prada", categoryName: "Shorts", description: "black nylon logo shorts for men, luxury sporty style" },
-      { name: "Denim Cutoff Shorts", color: "Light Wash", brand: "Levi's 501", categoryName: "Shorts", description: "light wash denim cutoff shorts for men, raw hem" },
-      { name: "Olive Chino Shorts", color: "Olive", brand: "J.Crew", categoryName: "Shorts", description: "olive green chino shorts for men, 7-inch inseam" },
-      { name: "Black Running Shorts", color: "Black", brand: "Lululemon", categoryName: "Shorts", description: "black lightweight running shorts for men with liner" },
+      { name: "Brown Corduroy Pants", color: "Brown", brand: "Corridor NYC", categoryName: "Pants", description: "brown wide wale corduroy pants for men, super baggy relaxed fit" },
+      { name: "Gray Sweatpants - Heavyweight", color: "Gray", brand: "Essentials", categoryName: "Joggers", description: "gray heavyweight cotton sweatpants for men, super baggy relaxed fit" },
+      { name: "Balloon Pants", color: "Beige", brand: "Homme Plissé Issey Miyake", categoryName: "Pants", description: "beige pleated balloon pants for men, dramatic wide silhouette" },
+      { name: "Oversized Cargo Shorts", color: "Khaki", brand: "Stussy", categoryName: "Shorts", description: "khaki oversized cargo shorts for men with large pockets" },
+      { name: "Nylon Parachute Pants", color: "Black", brand: "Misbhv", categoryName: "Cargo Pants", description: "black nylon parachute cargo pants for men, ultra baggy" },
+      { name: "Pleated Wide Trousers", color: "Charcoal", brand: "Yohji Yamamoto", categoryName: "Pants", description: "charcoal pleated wide leg wool trousers for men, avant-garde" },
+      { name: "Baggy Chinos", color: "Tan", brand: "Stan Ray", categoryName: "Chinos", description: "tan baggy chino pants for men, workwear style" },
+      { name: "Drop Crotch Pants", color: "Black", brand: "Rick Owens", categoryName: "Pants", description: "black drop crotch harem pants for men, dramatic silhouette" },
+      { name: "Relaxed Fatigue Pants", color: "Olive", brand: "Engineered Garments", categoryName: "Cargo Pants", description: "olive relaxed fatigue pants for men with oversized pockets" },
       
       // === SNEAKERS ===
       { name: "White Leather Sneakers", color: "White", brand: "Common Projects Achilles", categoryName: "Sneakers", description: "minimalist white leather low-top sneakers for men, gold serial number" },
@@ -233,11 +237,18 @@ serve(async (req) => {
       { name: "New Balance 550", color: "White/Green", brand: "New Balance", categoryName: "Sneakers", description: "New Balance 550 white leather sneakers with green accents" },
       { name: "Nike Air Force 1 Low", color: "White", brand: "Nike", categoryName: "Sneakers", description: "classic all-white Nike Air Force 1 Low sneakers" },
       { name: "Chunky Dad Sneakers", color: "Gray/Cream", brand: "New Balance 990v5", categoryName: "Sneakers", description: "gray and cream New Balance 990v5 chunky running sneakers" },
-      { name: "Black High-Top Converse", color: "Black", brand: "Converse Chuck 70", categoryName: "Sneakers", description: "black Converse Chuck 70 high-top canvas sneakers" },
       { name: "Nike Dunk Low Panda", color: "Black/White", brand: "Nike", categoryName: "Sneakers", description: "Nike Dunk Low in black and white panda colorway" },
       { name: "Adidas Samba OG", color: "Black/White", brand: "Adidas", categoryName: "Sneakers", description: "black Adidas Samba OG with white stripes and gum sole" },
       { name: "Vans Old Skool", color: "Black/White", brand: "Vans", categoryName: "Sneakers", description: "black Vans Old Skool with white stripe" },
       { name: "Nike Air Max 90", color: "White/Black", brand: "Nike", categoryName: "Sneakers", description: "Nike Air Max 90 in white with black accents" },
+      { name: "Triple S Sneakers", color: "Black", brand: "Balenciaga", categoryName: "Sneakers", description: "black Balenciaga Triple S chunky platform sneakers for men" },
+      { name: "ASICS Gel-Kayano 14", color: "Silver/White", brand: "ASICS", categoryName: "Sneakers", description: "silver and white ASICS Gel-Kayano 14 retro running sneakers" },
+      { name: "Maison Margiela GATs", color: "White/Gum", brand: "Maison Margiela", categoryName: "Sneakers", description: "white leather Maison Margiela German Army Trainers with gum sole" },
+      { name: "Nike Air Jordan 4", color: "White/Cement", brand: "Jordan", categoryName: "Sneakers", description: "Air Jordan 4 White Cement colorway sneakers" },
+      { name: "Salomon XT-6", color: "Black/Phantom", brand: "Salomon", categoryName: "Sneakers", description: "black Salomon XT-6 trail running sneakers, technical style" },
+      { name: "New Balance 2002R", color: "Rain Cloud", brand: "New Balance", categoryName: "Sneakers", description: "gray rain cloud New Balance 2002R retro sneakers" },
+      { name: "Converse Run Star Motion", color: "Black", brand: "Converse", categoryName: "Sneakers", description: "black Converse Run Star Motion platform sneakers" },
+      { name: "Yeezy 700 V3", color: "Alvah", brand: "Adidas Yeezy", categoryName: "Sneakers", description: "black Yeezy 700 V3 Alvah sneakers with cage upper" },
       
       // === BOOTS ===
       { name: "Suede Chelsea Boots", color: "Tan", brand: "Common Projects", categoryName: "Boots", description: "tan suede Chelsea boots for men with elastic side panels" },
@@ -245,53 +256,83 @@ serve(async (req) => {
       { name: "Brown Leather Chukka Boots", color: "Brown", brand: "Clarks Desert Boot", categoryName: "Boots", description: "brown suede Clarks desert chukka boots for men" },
       { name: "Black Leather Chelsea Boots", color: "Black", brand: "Saint Laurent", categoryName: "Boots", description: "sleek black leather Chelsea boots with cuban heel for men" },
       { name: "Tan Timberland Boots", color: "Wheat", brand: "Timberland", categoryName: "Boots", description: "classic wheat nubuck Timberland 6-inch boots for men" },
+      { name: "Black KISS Boots", color: "Black", brand: "Rick Owens", categoryName: "Boots", description: "black leather Rick Owens KISS boots with platform sole for men" },
+      { name: "Creeper Boots", color: "Black", brand: "T.U.K.", categoryName: "Boots", description: "black leather creeper boots with thick platform sole for men" },
+      { name: "Motorcycle Boots", color: "Black", brand: "Harley-Davidson", categoryName: "Boots", description: "black leather motorcycle harness boots for men" },
       
       // === LOAFERS ===
       { name: "Brown Leather Loafers", color: "Brown", brand: "G.H. Bass Weejuns", categoryName: "Loafers", description: "brown leather penny loafers for men, classic preppy style" },
       { name: "Black Bit Loafers", color: "Black", brand: "Gucci", categoryName: "Loafers", description: "black leather horsebit loafers for men" },
       { name: "Burgundy Tassel Loafers", color: "Burgundy", brand: "Alden", categoryName: "Loafers", description: "burgundy cordovan tassel loafers for men" },
+      { name: "Platform Loafers", color: "Black", brand: "Prada", categoryName: "Loafers", description: "black leather platform loafers with thick sole for men" },
       
-      // === ACCESSORIES - HATS ===
+      // === HATS ===
       { name: "Black Baseball Cap", color: "Black", brand: "New Era Yankees", categoryName: "Hat", description: "black New York Yankees fitted baseball cap for men" },
       { name: "Cream Bucket Hat", color: "Cream", brand: "Stussy", categoryName: "Hat", description: "cream colored cotton bucket hat for men" },
       { name: "Navy Dad Hat", color: "Navy", brand: "Polo Ralph Lauren", categoryName: "Hat", description: "navy blue cotton dad hat with polo player logo" },
-      { name: "Black Trucker Hat", color: "Black", brand: "Chrome Hearts", categoryName: "Hat", description: "black mesh trucker hat with cross patch" },
+      { name: "Vintage Trucker Hat", color: "Brown/Tan", brand: "Patagonia", categoryName: "Hat", description: "brown and tan vintage mesh trucker hat for men" },
+      { name: "Wide Brim Hat", color: "Black", brand: "Brixton", categoryName: "Hat", description: "black wide brim fedora hat for men, modern cowboy style" },
       
-      // === ACCESSORIES - BEANIES ===
+      // === BEANIES ===
       { name: "Gray Wool Beanie", color: "Gray", brand: "Acne Studios", categoryName: "Beanie", description: "gray ribbed wool beanie for men with face logo" },
       { name: "Black Carhartt Beanie", color: "Black", brand: "Carhartt", categoryName: "Beanie", description: "black Carhartt knit watch beanie for men" },
       { name: "Navy Fisherman Beanie", color: "Navy", brand: "Norse Projects", categoryName: "Beanie", description: "navy blue merino wool fisherman beanie for men" },
+      { name: "Oversized Slouchy Beanie", color: "Charcoal", brand: "Rick Owens", categoryName: "Beanie", description: "charcoal gray oversized slouchy beanie for men" },
       
-      // === ACCESSORIES - SUNGLASSES ===
+      // === SUNGLASSES ===
       { name: "Black Aviator Sunglasses", color: "Gold/Black", brand: "Ray-Ban", categoryName: "Sunglasses", description: "gold frame black lens aviator sunglasses for men" },
       { name: "Tortoise Wayfarer Sunglasses", color: "Tortoise", brand: "Persol", categoryName: "Sunglasses", description: "tortoise shell Persol wayfarer sunglasses for men" },
       { name: "Black Square Sunglasses", color: "Black", brand: "Tom Ford", categoryName: "Sunglasses", description: "black square frame Tom Ford sunglasses for men" },
+      { name: "Shield Sunglasses", color: "Silver", brand: "Oakley", categoryName: "Sunglasses", description: "silver shield-style Oakley sport sunglasses for men" },
+      { name: "Oversized Square Sunglasses", color: "Black", brand: "Saint Laurent", categoryName: "Sunglasses", description: "oversized square black Saint Laurent sunglasses for men" },
       
-      // === ACCESSORIES - WATCHES ===
+      // === WATCHES ===
       { name: "Silver Watch - Minimalist", color: "Silver", brand: "Daniel Wellington", categoryName: "Watch", description: "minimalist silver watch for men with white dial and black leather strap" },
       { name: "Black G-Shock Watch", color: "Black", brand: "Casio G-Shock", categoryName: "Watch", description: "black Casio G-Shock digital watch for men, rugged style" },
       { name: "Gold Rolex Day-Date", color: "Gold", brand: "Rolex", categoryName: "Watch", description: "gold Rolex Day-Date watch with champagne dial" },
+      { name: "Steel Submariner", color: "Silver/Blue", brand: "Rolex", categoryName: "Watch", description: "stainless steel Rolex Submariner with blue bezel for men" },
+      { name: "Digital Watch", color: "Silver", brand: "Casio A168", categoryName: "Watch", description: "silver Casio A168 retro digital watch for men" },
       
-      // === ACCESSORIES - CHAINS & JEWELRY ===
+      // === CHAINS & JEWELRY ===
       { name: "Gold Cuban Link Chain", color: "Gold", brand: "The GLD Shop", categoryName: "Chain", description: "18k gold plated cuban link chain necklace for men, medium width" },
       { name: "Silver Chain Necklace", color: "Silver", brand: "Miansai", categoryName: "Chain", description: "sterling silver box chain necklace for men, minimal style" },
       { name: "Pearl Necklace", color: "White", brand: "Vivienne Westwood", categoryName: "Chain", description: "white pearl choker necklace for men with orb pendant" },
+      { name: "Rope Chain Gold", color: "Gold", brand: "King Ice", categoryName: "Chain", description: "gold rope chain necklace for men, thick statement piece" },
+      { name: "Cross Pendant Chain", color: "Silver", brand: "Chrome Hearts", categoryName: "Chain", description: "sterling silver cross pendant chain for men" },
+      { name: "Layered Chain Set", color: "Silver", brand: "Vitaly", categoryName: "Chain", description: "layered sterling silver chain necklace set for men, 3 chains" },
+      { name: "Figaro Chain", color: "Gold", brand: "Hatton Labs", categoryName: "Chain", description: "gold figaro link chain necklace for men" },
       
-      // === ACCESSORIES - BELTS ===
+      // === BRACELETS ===
+      { name: "Beaded Bracelet Set", color: "Earth Tones", brand: "Vitaly", categoryName: "Bracelet", description: "earth-toned beaded bracelet set for men, 3 pieces" },
+      { name: "Silver Cuff Bracelet", color: "Silver", brand: "David Yurman", categoryName: "Bracelet", description: "sterling silver cable cuff bracelet for men" },
+      { name: "Cuban Link Bracelet", color: "Gold", brand: "The GLD Shop", categoryName: "Bracelet", description: "gold cuban link bracelet for men, matching chain set" },
+      { name: "Leather Wrap Bracelet", color: "Brown", brand: "Miansai", categoryName: "Bracelet", description: "brown leather wrap bracelet with silver hook clasp for men" },
+      { name: "Tennis Bracelet", color: "Silver", brand: "Swarovski", categoryName: "Bracelet", description: "silver tennis bracelet with crystals for men" },
+      
+      // === RINGS ===
+      { name: "Silver Signet Ring", color: "Silver", brand: "Tom Wood", categoryName: "Bracelet", description: "sterling silver signet ring for men, minimalist design" },
+      { name: "Gold Band Ring", color: "Gold", brand: "Miansai", categoryName: "Bracelet", description: "14k gold simple band ring for men" },
+      { name: "Black Titanium Ring", color: "Black", brand: "Vitaly", categoryName: "Bracelet", description: "black titanium band ring for men, matte finish" },
+      
+      // === BELTS ===
       { name: "Black Leather Belt", color: "Black", brand: "Gucci", categoryName: "Belt", description: "black leather belt for men with interlocking G buckle" },
       { name: "Brown Woven Belt", color: "Brown", brand: "Anderson's", categoryName: "Belt", description: "brown woven elastic belt for men with leather trim" },
       { name: "Black Canvas Belt", color: "Black", brand: "Off-White", categoryName: "Belt", description: "black industrial canvas belt for men with yellow logo" },
+      { name: "Silver Buckle Belt", color: "Black", brand: "Chrome Hearts", categoryName: "Belt", description: "black leather belt with oversized silver cross buckle for men" },
       
-      // === ACCESSORIES - BAGS ===
+      // === BAGS ===
       { name: "Canvas Tote Bag", color: "Natural", brand: "L.L.Bean", categoryName: "Bag", description: "natural canvas boat and tote bag for men with navy handles" },
       { name: "Black Crossbody Bag", color: "Black", brand: "Prada", categoryName: "Bag", description: "black nylon crossbody sling bag for men with triangle logo" },
       { name: "Leather Backpack", color: "Tan", brand: "Mismo", categoryName: "Bag", description: "tan leather minimalist backpack for men, clean lines" },
       { name: "Black Messenger Bag", color: "Black", brand: "Tumi", categoryName: "Bag", description: "black ballistic nylon messenger bag for men" },
+      { name: "Mini Shoulder Bag", color: "Black", brand: "Bottega Veneta", categoryName: "Bag", description: "black woven leather mini shoulder bag for men" },
+      { name: "Utility Chest Rig", color: "Black", brand: "Alyx", categoryName: "Bag", description: "black tactical utility chest rig bag for men" },
+      { name: "Nylon Belt Bag", color: "Black", brand: "Arc'teryx", categoryName: "Bag", description: "black nylon belt bag fanny pack for men" },
       
-      // === ACCESSORIES - SCARVES & BRACELETS ===
+      // === SCARVES ===
       { name: "Cashmere Scarf", color: "Gray", brand: "Acne Studios", categoryName: "Scarf", description: "oversized gray cashmere scarf for men with fringe" },
-      { name: "Beaded Bracelet Set", color: "Earth Tones", brand: "Vitaly", categoryName: "Bracelet", description: "earth-toned beaded bracelet set for men, 3 pieces" },
-      { name: "Silver Cuff Bracelet", color: "Silver", brand: "David Yurman", categoryName: "Bracelet", description: "sterling silver cable cuff bracelet for men" },
+      { name: "Wool Scarf", color: "Camel", brand: "A.P.C.", categoryName: "Scarf", description: "camel colored wool scarf for men, classic style" },
+      { name: "Bandana Scarf", color: "Red", brand: "Kapital", categoryName: "Scarf", description: "red paisley bandana scarf for men, oversized" },
     ];
 
     // Filter out items that already exist
@@ -311,20 +352,21 @@ serve(async (req) => {
       );
     }
 
-    // Shuffle and pick 3 random items from different categories
+    // Shuffle and pick 15 random items from different categories
     const shuffled = [...availableItems].sort(() => Math.random() - 0.5);
     
     // Try to get variety - pick from different category types
     const selectedItems: typeof allClothingItems = [];
-    const usedCategories = new Set<string>();
+    const usedCategories = new Map<string, number>();
     
     for (const item of shuffled) {
-      if (selectedItems.length >= 3) break;
+      if (selectedItems.length >= 15) break;
       
-      // Prefer items from categories we haven't used yet
-      if (!usedCategories.has(item.categoryName) || shuffled.length - selectedItems.length <= 3) {
+      // Prefer items from categories we haven't used much yet (max 3 per category)
+      const categoryCount = usedCategories.get(item.categoryName) || 0;
+      if (categoryCount < 3 || shuffled.length - selectedItems.length <= 15) {
         selectedItems.push(item);
-        usedCategories.add(item.categoryName);
+        usedCategories.set(item.categoryName, categoryCount + 1);
       }
     }
 
