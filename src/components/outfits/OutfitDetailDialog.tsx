@@ -131,21 +131,20 @@ export default function OutfitDetailDialog({
                 />
               </div>
             ) : outfit.items.length > 0 ? (
-              <div className="aspect-[4/3] rounded-xl overflow-hidden bg-secondary p-1">
-                <div className="grid grid-cols-2 h-full gap-1">
-                  {outfit.items.slice(0, 4).map((item) => (
-                    <div key={item.id} className="overflow-hidden rounded-lg bg-background">
-                      <img
-                        src={item.image_url}
-                        alt={item.name}
-                        className="h-full w-full object-cover"
-                      />
+              <div className="rounded-xl overflow-hidden bg-secondary p-2">
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                  {outfit.items.map((item) => (
+                    <div key={item.id} className="flex-shrink-0 w-28 space-y-1">
+                      <div className="aspect-square rounded-lg overflow-hidden bg-background">
+                        <img
+                          src={item.image_url}
+                          alt={item.name}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <p className="text-xs truncate text-center">{item.name}</p>
                     </div>
                   ))}
-                  {outfit.items.length < 4 &&
-                    Array.from({ length: 4 - outfit.items.length }).map((_, i) => (
-                      <div key={`empty-${i}`} className="bg-muted rounded-lg" />
-                    ))}
                 </div>
               </div>
             ) : null}
