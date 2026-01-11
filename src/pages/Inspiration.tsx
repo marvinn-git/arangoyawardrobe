@@ -100,20 +100,19 @@ export default function Inspiration() {
         return;
       }
 
-      // Fetch profiles for post authors
+      // Fetch public profiles for post authors (using secure view with only public fields)
       const userIds = [...new Set(postsData.map(p => p.user_id))];
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('user_id, username, avatar_url, style_preferences')
+      const { data: publicProfilesData } = await supabase
+        .from('public_profiles')
+        .select('user_id, username, avatar_url')
         .in('user_id', userIds);
       
       const profilesMap: Record<string, Profile & { style_preferences?: string }> = {};
-      if (profilesData) {
-        for (const p of profilesData) {
+      if (publicProfilesData) {
+        for (const p of publicProfilesData) {
           profilesMap[p.user_id] = { 
             username: p.username, 
             avatar_url: p.avatar_url,
-            style_preferences: p.style_preferences 
           };
         }
       }
