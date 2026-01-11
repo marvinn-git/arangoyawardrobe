@@ -119,7 +119,7 @@ export default function OutfitDetailDialog({
           </div>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 -mx-6 px-6">
+        <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
           <div className="space-y-6 pb-4">
             {/* Main outfit preview */}
             {outfit.photo_url ? (
