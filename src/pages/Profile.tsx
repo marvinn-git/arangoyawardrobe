@@ -230,13 +230,19 @@ export default function Profile() {
   const handleSeedInspiration = async () => {
     setSeedingInspiration(true);
     try {
+      // Get current session token for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error(language === 'es' ? 'Debes iniciar sesión' : 'You must be logged in');
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-inspiration`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Authorization': `Bearer ${session.access_token}`,
           },
         }
       );
