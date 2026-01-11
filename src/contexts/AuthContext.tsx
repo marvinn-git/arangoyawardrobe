@@ -43,8 +43,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       body: payload,
     });
 
+    // Handle invoke-level errors (network issues, function not found, etc.)
     if (error) {
-      throw new Error(error.message);
+      const errorMessage = error.message || JSON.stringify(error) || 'Authentication request failed';
+      throw new Error(errorMessage);
+    }
+
+    // Handle application-level errors returned by the edge function
+    if (data?.error) {
+      throw new Error(data.error);
     }
 
     return data as any;
