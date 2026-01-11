@@ -33,6 +33,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   // Profile data
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
+  const [usernameError, setUsernameError] = useState('');
   const [yearOfBirth, setYearOfBirth] = useState('');
   const [heightCm, setHeightCm] = useState('');
   const [weightKg, setWeightKg] = useState('');
@@ -74,12 +76,81 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     });
   };
 
+  const validateUsername = (value: string) => {
+    if (value.length < 4) {
+      return language === 'es' ? 'Mínimo 4 caracteres' : 'Minimum 4 characters';
+    }
+    if (!/^[a-zA-Z0-9._]+$/.test(value)) {
+      return language === 'es' 
+        ? 'Solo letras, números, puntos y guiones bajos' 
+        : 'Only letters, numbers, dots and underscores';
+    }
+    return '';
+  };
+
+  const checkUsernameAvailability = async (value: string) => {
+    if (!value || validateUsername(value)) return;
+    
+    const { data } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('username', value.toLowerCase())
+      .maybeSingle();
+    
+    if (data) {
+      setUsernameError(language === 'es' ? 'Usuario no disponible' : 'Username not available');
+    }
+  };
+
+  const handleUsernameChange = (value: string) => {
+    const cleaned = value.toLowerCase().replace(/[^a-z0-9._]/g, '');
+    setUsername(cleaned);
+    setUsernameError(validateUsername(cleaned));
+  };
+
   const handleNext = async () => {
     if (step === 'profile') {
-      if (!name.trim() || !yearOfBirth) {
+      if (!name.trim()) {
         toast({
           title: t('error'),
-          description: language === 'es' ? 'Nombre y año de nacimiento son requeridos' : 'Name and year of birth are required',
+          description: language === 'es' ? 'El nombre es requerido' : 'Name is required',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const usernameValidation = validateUsername(username);
+      if (usernameValidation) {
+        setUsernameError(usernameValidation);
+        toast({
+          title: t('error'),
+          description: usernameValidation,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Check username availability
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', username.toLowerCase())
+        .maybeSingle();
+
+      if (existingUser) {
+        setUsernameError(language === 'es' ? 'Usuario no disponible' : 'Username not available');
+        toast({
+          title: t('error'),
+          description: language === 'es' ? 'Usuario no disponible' : 'Username not available',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (!yearOfBirth) {
+        toast({
+          title: t('error'),
+          description: language === 'es' ? 'El año de nacimiento es requerido' : 'Year of birth is required',
           variant: 'destructive',
         });
         return;
@@ -130,6 +201,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         .from('profiles')
         .update({
           name: name.trim(),
+          username: username.toLowerCase(),
           year_of_birth: parseInt(yearOfBirth),
           height_cm: heightCm ? parseFloat(heightCm) : null,
           weight_kg: weightKg ? parseFloat(weightKg) : null,
@@ -248,6 +320,31 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 placeholder="John Doe"
                 required
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="username">
+                {language === 'es' ? 'Nombre de usuario' : 'Username'} *
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
+                <Input
+                  id="username"
+                  value={username}
+                  onChange={(e) => handleUsernameChange(e.target.value)}
+                  onBlur={() => checkUsernameAvailability(username)}
+                  placeholder="johndoe"
+                  className={`pl-8 ${usernameError ? 'border-destructive' : ''}`}
+                  required
+                />
+              </div>
+              {usernameError && (
+                <p className="text-xs text-destructive">{usernameError}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {language === 'es' 
+                  ? 'Mínimo 4 caracteres. Solo letras, números, puntos y _' 
+                  : 'Min 4 characters. Letters, numbers, dots and _ only'}
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="yearOfBirth">
