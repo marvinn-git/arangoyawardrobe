@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Plus, TrendingUp, Clock, Sparkles, Heart, RefreshCw } from 'lucide-react';
+import { Search, Plus, TrendingUp, Clock, Sparkles, Heart, RefreshCw, Bookmark } from 'lucide-react';
 import InspirationPostCard from '@/components/inspiration/InspirationPostCard';
 import CreatePostDialog from '@/components/inspiration/CreatePostDialog';
 
@@ -28,6 +28,7 @@ interface InspirationPost {
   created_at: string;
   profile?: Profile;
   hasLiked?: boolean;
+  hasSaved?: boolean;
   outfit?: {
     id: string;
     name: string;
@@ -51,32 +52,44 @@ export default function Inspiration() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'foryou' | 'trending' | 'recent'>('foryou');
+  const [activeTab, setActiveTab] = useState<'foryou' | 'trending' | 'recent' | 'saved'>('foryou');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [userStyleTags, setUserStyleTags] = useState<string[]>([]);
   const [userStyleNames, setUserStyleNames] = useState<string[]>([]);
+  const [savedPostIds, setSavedPostIds] = useState<Set<string>>(new Set());
 
-  // Fetch user's style tags on mount
+  // Fetch user's style tags and saved posts on mount
   useEffect(() => {
-    const fetchUserStyles = async () => {
+    const fetchUserData = async () => {
       if (!user) return;
       
-      const { data } = await supabase
+      // Fetch style tags
+      const { data: styleData } = await supabase
         .from('user_style_tags')
         .select('style_tag:style_tags(name)')
         .eq('user_id', user.id);
       
-      if (data) {
-        const names = data
+      if (styleData) {
+        const names = styleData
           .map((item: any) => item.style_tag?.name)
           .filter(Boolean);
         const tags = names.map((n: string) => n.toLowerCase());
         setUserStyleTags(tags);
         setUserStyleNames(names);
       }
+
+      // Fetch saved posts
+      const { data: savedData } = await supabase
+        .from('saved_posts')
+        .select('post_id')
+        .eq('user_id', user.id);
+      
+      if (savedData) {
+        setSavedPostIds(new Set(savedData.map(s => s.post_id)));
+      }
     };
     
-    fetchUserStyles();
+    fetchUserData();
   }, [user]);
 
   // Handle refresh feed - triggers personalized content generation
@@ -298,6 +311,7 @@ export default function Inspiration() {
           created_at: post.created_at,
           profile: profilesMap[post.user_id],
           hasLiked: likedPostIds.has(post.id),
+          hasSaved: savedPostIds.has(post.id),
           outfit: post.outfit_id ? outfitsMap[post.outfit_id] : undefined,
           clothing_item: post.clothing_item_id ? clothingMap[post.clothing_item_id] : undefined,
           relevanceScore,
@@ -336,7 +350,7 @@ export default function Inspiration() {
     } finally {
       setLoading(false);
     }
-  }, [user, activeTab, language, toast, userStyleTags]);
+  }, [user, activeTab, language, toast, userStyleTags, savedPostIds]);
 
   useEffect(() => {
     fetchPosts();
@@ -376,6 +390,50 @@ export default function Inspiration() {
     }
   };
 
+  const handleSave = async (postId: string, hasSaved: boolean) => {
+    if (!user) return;
+
+    try {
+      if (hasSaved) {
+        await supabase
+          .from('saved_posts')
+          .delete()
+          .eq('post_id', postId)
+          .eq('user_id', user.id);
+        
+        setSavedPostIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(postId);
+          return newSet;
+        });
+      } else {
+        await supabase
+          .from('saved_posts')
+          .insert({ post_id: postId, user_id: user.id });
+        
+        setSavedPostIds(prev => new Set([...prev, postId]));
+      }
+
+      // Update local state
+      setPosts(prev => prev.map(post => {
+        if (post.id === postId) {
+          return { ...post, hasSaved: !hasSaved };
+        }
+        return post;
+      }));
+
+      toast({
+        title: hasSaved 
+          ? (language === 'es' ? 'Eliminado de guardados' : 'Removed from saved')
+          : (language === 'es' ? '¡Guardado!' : 'Saved!'),
+      });
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.error('Error toggling save:', error);
+      }
+    }
+  };
+
   const handlePostCreated = () => {
     setShowCreateDialog(false);
     fetchPosts();
@@ -386,6 +444,10 @@ export default function Inspiration() {
   };
 
   const filteredPosts = posts.filter(post => {
+    // Filter by saved tab
+    if (activeTab === 'saved' && !post.hasSaved) return false;
+    
+    // Filter by search query
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -454,6 +516,10 @@ export default function Inspiration() {
             <Clock className="h-4 w-4" />
             {language === 'es' ? 'Reciente' : 'Recent'}
           </TabsTrigger>
+          <TabsTrigger value="saved" className="gap-2">
+            <Bookmark className="h-4 w-4" />
+            {language === 'es' ? 'Guardados' : 'Saved'}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-6">
@@ -485,6 +551,7 @@ export default function Inspiration() {
                   key={post.id}
                   post={post}
                   onLike={() => handleLike(post.id, post.hasLiked || false)}
+                  onSave={() => handleSave(post.id, post.hasSaved || false)}
                   currentUserId={user?.id}
                 />
               ))}
