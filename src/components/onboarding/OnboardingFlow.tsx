@@ -222,6 +222,21 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       const { error: tagsError } = await supabase.from('user_style_tags').insert(tagsToInsert);
       if (tagsError) throw tagsError;
 
+      // Seed inspiration content for new user (runs in background)
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-inspiration`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          }
+        ).catch((err) => console.log('Inspiration seeding started in background:', err));
+      }
+
       toast({
         title: t('success'),
         description: language === 'es' ? '¡Perfil completado!' : 'Profile completed!',

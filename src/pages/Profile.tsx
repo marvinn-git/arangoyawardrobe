@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { User, Loader2, Camera, Sparkles } from 'lucide-react';
+import { User, Loader2, Camera } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -48,7 +48,6 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [seedingInspiration, setSeedingInspiration] = useState(false);
 
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
@@ -224,49 +223,6 @@ export default function Profile() {
       toast({ title: t('error'), description: error.message, variant: 'destructive' });
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleSeedInspiration = async () => {
-    setSeedingInspiration(true);
-    try {
-      // Get current session token for authentication
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error(language === 'es' ? 'Debes iniciar sesión' : 'You must be logged in');
-      }
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-inspiration`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to seed inspiration');
-      }
-
-      const result = await response.json();
-      toast({
-        title: language === 'es' ? '¡Contenido generado!' : 'Content generated!',
-        description: language === 'es' 
-          ? `Se crearon ${result.usersCreated} usuarios y ${result.postsCreated} publicaciones` 
-          : `Created ${result.usersCreated} users and ${result.postsCreated} posts`,
-      });
-    } catch (error: any) {
-      toast({
-        title: t('error'),
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setSeedingInspiration(false);
     }
   };
 
@@ -459,30 +415,6 @@ export default function Profile() {
                 t('updateProfile')
               )}
             </Button>
-
-            <div className="pt-4 border-t">
-              <p className="text-sm text-muted-foreground mb-3">
-                {language === 'es' 
-                  ? 'Herramientas de desarrollo' 
-                  : 'Developer Tools'}
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full"
-                onClick={handleSeedInspiration}
-                disabled={seedingInspiration}
-              >
-                {seedingInspiration ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Sparkles className="h-4 w-4 mr-2" />
-                )}
-                {language === 'es' 
-                  ? 'Generar contenido de inspiración' 
-                  : 'Generate Inspiration Content'}
-              </Button>
-            </div>
           </form>
         </CardContent>
       </Card>
