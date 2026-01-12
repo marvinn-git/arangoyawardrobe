@@ -19,6 +19,8 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { User, Loader2, Camera } from 'lucide-react';
+import ThemeSelector from '@/components/profile/ThemeSelector';
+import UsernameEditor from '@/components/profile/UsernameEditor';
 
 interface Profile {
   id: string;
@@ -30,6 +32,7 @@ interface Profile {
   style_preferences: string | null;
   preferred_language: 'en' | 'es';
   year_of_birth: number | null;
+  username_last_changed: string | null;
 }
 
 interface StyleTag {
@@ -51,6 +54,7 @@ export default function Profile() {
 
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
+  const [usernameLastChanged, setUsernameLastChanged] = useState<string | null>(null);
   const [yearOfBirth, setYearOfBirth] = useState('');
   const [heightCm, setHeightCm] = useState('');
   const [weightKg, setWeightKg] = useState('');
@@ -58,7 +62,6 @@ export default function Profile() {
   const [preferredLanguage, setPreferredLanguage] = useState<'en' | 'es'>('en');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   
-  // Style tags
   const [allStyleTags, setAllStyleTags] = useState<StyleTag[]>([]);
   const [selectedStyleTagIds, setSelectedStyleTagIds] = useState<string[]>([]);
 
@@ -66,7 +69,6 @@ export default function Profile() {
     const fetchData = async () => {
       if (!user) return;
 
-      // Fetch profile, style tags, and user's selected tags in parallel
       const [profileRes, tagsRes, userTagsRes] = await Promise.all([
         supabase
           .from('profiles')
@@ -88,6 +90,7 @@ export default function Profile() {
         setProfile(data as Profile);
         setName(data.name || '');
         setUsername(data.username || '');
+        setUsernameLastChanged(data.username_last_changed || null);
         setYearOfBirth(data.year_of_birth?.toString() || '');
         setHeightCm(data.height_cm?.toString() || '');
         setWeightKg(data.weight_kg?.toString() || '');
@@ -96,13 +99,8 @@ export default function Profile() {
         setAvatarUrl(data.avatar_url);
       }
 
-      if (tagsRes.data) {
-        setAllStyleTags(tagsRes.data);
-      }
-
-      if (userTagsRes.data) {
-        setSelectedStyleTagIds(userTagsRes.data.map((t) => t.style_tag_id));
-      }
+      if (tagsRes.data) setAllStyleTags(tagsRes.data);
+      if (userTagsRes.data) setSelectedStyleTagIds(userTagsRes.data.map((t) => t.style_tag_id));
 
       setLoading(false);
     };
@@ -111,20 +109,13 @@ export default function Profile() {
   }, [user]);
 
   const toggleStyleTag = (tagId: string) => {
-    setSelectedStyleTagIds((prev) => {
-      if (prev.includes(tagId)) {
-        return prev.filter((id) => id !== tagId);
-      }
-      return [...prev, tagId];
-    });
+    setSelectedStyleTagIds((prev) => prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]);
   };
 
-  const handleCreateStyleTag = async (name: string) => {
+  const handleCreateStyleTag = async () => {
     toast({
       title: language === 'es' ? 'Etiquetas personalizadas' : 'Custom tags',
-      description: language === 'es' 
-        ? 'Las etiquetas personalizadas estarán disponibles pronto' 
-        : 'Custom tags will be available soon',
+      description: language === 'es' ? 'Las etiquetas personalizadas estarán disponibles pronto' : 'Custom tags will be available soon',
     });
   };
 
@@ -137,36 +128,18 @@ export default function Profile() {
       const fileExt = file.name.split('.').pop();
       const filePath = `${user.id}/avatar.${fileExt}`;
 
-      // Upload to storage
-      const { error: uploadError } = await supabase.storage
-        .from('clothing-images')
-        .upload(filePath, file, { upsert: true });
-
+      const { error: uploadError } = await supabase.storage.from('clothing-images').upload(filePath, file, { upsert: true });
       if (uploadError) throw uploadError;
 
-      // Get signed URL
-      const { data: urlData } = await supabase.storage
-        .from('clothing-images')
-        .createSignedUrl(filePath, 60 * 60 * 24 * 365);
+      const { data: urlData } = await supabase.storage.from('clothing-images').createSignedUrl(filePath, 60 * 60 * 24 * 365);
 
       if (urlData?.signedUrl) {
-        // Update profile
-        await supabase
-          .from('profiles')
-          .update({ avatar_url: urlData.signedUrl })
-          .eq('user_id', user.id);
-
+        await supabase.from('profiles').update({ avatar_url: urlData.signedUrl }).eq('user_id', user.id);
         setAvatarUrl(urlData.signedUrl);
-        toast({
-          title: language === 'es' ? '¡Foto actualizada!' : 'Photo updated!',
-        });
+        toast({ title: language === 'es' ? '¡Foto actualizada!' : 'Photo updated!' });
       }
     } catch (error: any) {
-      toast({
-        title: t('error'),
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: t('error'), description: error.message, variant: 'destructive' });
     } finally {
       setUploadingAvatar(false);
     }
@@ -176,20 +149,13 @@ export default function Profile() {
     e.preventDefault();
     if (!user) return;
 
-    // Validate minimum 3 style tags
     if (selectedStyleTagIds.length < 3) {
-      toast({ 
-        title: t('error'), 
-        description: t('selectStyleTags'), 
-        variant: 'destructive' 
-      });
+      toast({ title: t('error'), description: t('selectStyleTags'), variant: 'destructive' });
       return;
     }
 
     setSaving(true);
-
     try {
-      // Update profile
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
@@ -204,20 +170,12 @@ export default function Profile() {
 
       if (profileError) throw profileError;
 
-      // Update style tags - delete old and insert new
       await supabase.from('user_style_tags').delete().eq('user_id', user.id);
-      
-      const tagsToInsert = selectedStyleTagIds.map((tagId) => ({
-        user_id: user.id,
-        style_tag_id: tagId,
-      }));
-
+      const tagsToInsert = selectedStyleTagIds.map((tagId) => ({ user_id: user.id, style_tag_id: tagId }));
       const { error: tagsError } = await supabase.from('user_style_tags').insert(tagsToInsert);
       if (tagsError) throw tagsError;
 
-      // Update app language
       setLanguage(preferredLanguage);
-
       toast({ title: t('success'), description: t('profileUpdated') });
     } catch (error: any) {
       toast({ title: t('error'), description: error.message, variant: 'destructive' });
@@ -255,9 +213,7 @@ export default function Profile() {
               <div className="relative">
                 <Avatar className="h-20 w-20">
                   <AvatarImage src={avatarUrl || undefined} />
-                  <AvatarFallback className="text-xl">
-                    {name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'}
-                  </AvatarFallback>
+                  <AvatarFallback className="text-xl">{name?.[0]?.toUpperCase() || '?'}</AvatarFallback>
                 </Avatar>
                 <button
                   type="button"
@@ -265,99 +221,47 @@ export default function Profile() {
                   disabled={uploadingAvatar}
                   className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
-                  {uploadingAvatar ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Camera className="h-4 w-4" />
-                  )}
+                  {uploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
                 </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  className="sr-only"
-                />
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} className="sr-only" />
               </div>
               <div>
                 <p className="font-medium">{name || user?.email}</p>
-                <p className="text-sm text-muted-foreground">
-                  @{username || (language === 'es' ? 'sin usuario' : 'no username')}
-                </p>
+                <p className="text-sm text-muted-foreground">@{username || (language === 'es' ? 'sin usuario' : 'no username')}</p>
               </div>
             </div>
 
-            {/* Name */}
             <div className="space-y-2">
               <Label htmlFor="name">{t('name')}</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="John Doe"
-              />
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="John Doe" />
             </div>
 
-            {/* Username (read-only after set) */}
+            <UsernameEditor
+              language={language}
+              currentUsername={username}
+              usernameLastChanged={usernameLastChanged}
+              onUsernameUpdate={(newUsername) => {
+                setUsername(newUsername);
+                setUsernameLastChanged(new Date().toISOString());
+              }}
+            />
+
             <div className="space-y-2">
-              <Label htmlFor="username">
-                {language === 'es' ? 'Nombre de usuario' : 'Username'}
-              </Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
-                <Input
-                  id="username"
-                  value={username}
-                  disabled
-                  className="pl-8 bg-muted"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {language === 'es' 
-                  ? 'El nombre de usuario no se puede cambiar' 
-                  : 'Username cannot be changed'}
-              </p>
+              <Label htmlFor="yearOfBirth">{language === 'es' ? 'Año de nacimiento' : 'Year of birth'}</Label>
+              <Input id="yearOfBirth" type="number" value={yearOfBirth} onChange={(e) => setYearOfBirth(e.target.value)} placeholder="2000" />
             </div>
 
-            {/* Year of Birth */}
-            <div className="space-y-2">
-              <Label htmlFor="yearOfBirth">
-                {language === 'es' ? 'Año de nacimiento' : 'Year of birth'}
-              </Label>
-              <Input
-                id="yearOfBirth"
-                type="number"
-                value={yearOfBirth}
-                onChange={(e) => setYearOfBirth(e.target.value)}
-                placeholder="2000"
-              />
-            </div>
-
-            {/* Height & Weight */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="height">{t('height')}</Label>
-                <Input
-                  id="height"
-                  type="number"
-                  value={heightCm}
-                  onChange={(e) => setHeightCm(e.target.value)}
-                  placeholder="175"
-                />
+                <Input id="height" type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} placeholder="175" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="weight">{t('weight')}</Label>
-                <Input
-                  id="weight"
-                  type="number"
-                  value={weightKg}
-                  onChange={(e) => setWeightKg(e.target.value)}
-                  placeholder="70"
-                />
+                <Input id="weight" type="number" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="70" />
               </div>
             </div>
 
-            {/* Style Tags - Required */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label>{t('styleTagsRequired')} *</Label>
@@ -365,42 +269,20 @@ export default function Profile() {
                   {selectedStyleTagIds.length} {t('styleTagsCount')} {selectedStyleTagIds.length < 3 ? `(min 3)` : ''}
                 </Badge>
               </div>
-              <SearchableChipSelector
-                options={allStyleTags}
-                selectedIds={selectedStyleTagIds}
-                onToggle={toggleStyleTag}
-                onCreateNew={handleCreateStyleTag}
-                placeholder={language === 'es' ? 'Buscar estilos...' : 'Search styles...'}
-                showCreateNew={false}
-              />
+              <SearchableChipSelector options={allStyleTags} selectedIds={selectedStyleTagIds} onToggle={toggleStyleTag} onCreateNew={handleCreateStyleTag} placeholder={language === 'es' ? 'Buscar estilos...' : 'Search styles...'} showCreateNew={false} />
             </div>
 
-            {/* Additional Notes - Optional */}
             <div className="space-y-2">
               <Label htmlFor="stylePreferences">{t('additionalNotes')}</Label>
-              <Textarea
-                id="stylePreferences"
-                value={stylePreferences}
-                onChange={(e) => setStylePreferences(e.target.value)}
-                placeholder={
-                  language === 'es'
-                    ? 'Notas adicionales sobre tu estilo...'
-                    : 'Additional notes about your style...'
-                }
-                rows={2}
-              />
+              <Textarea id="stylePreferences" value={stylePreferences} onChange={(e) => setStylePreferences(e.target.value)} placeholder={language === 'es' ? 'Notas adicionales sobre tu estilo...' : 'Additional notes about your style...'} rows={2} />
             </div>
 
-            {/* Language */}
+            <ThemeSelector language={language} />
+
             <div className="space-y-2">
               <Label>{t('preferredLanguage')}</Label>
-              <Select
-                value={preferredLanguage}
-                onValueChange={(value: 'en' | 'es') => setPreferredLanguage(value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={preferredLanguage} onValueChange={(value: 'en' | 'es') => setPreferredLanguage(value)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="en">{t('english')}</SelectItem>
                   <SelectItem value="es">{t('spanish')}</SelectItem>
@@ -409,11 +291,7 @@ export default function Profile() {
             </div>
 
             <Button type="submit" className="w-full" disabled={saving}>
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                t('updateProfile')
-              )}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : t('updateProfile')}
             </Button>
           </form>
         </CardContent>
