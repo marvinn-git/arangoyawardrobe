@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,8 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { SearchableChipSelector } from '@/components/ui/searchable-chip-selector';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { Shirt, User, Sparkles, ChevronRight, ChevronLeft, Check, Wand2, ArrowUpCircle, SkipForward } from 'lucide-react';
+import { Shirt, User, Sparkles, ChevronRight, ChevronLeft, Check, Wand2, ArrowUpCircle, SkipForward, Camera, Loader2 } from 'lucide-react';
+import BodyMeasurementsStep from './BodyMeasurementsStep';
 
 interface StyleTag {
   id: string;
@@ -21,15 +23,17 @@ interface OnboardingFlowProps {
   onComplete: () => void;
 }
 
-type Step = 'welcome' | 'profile' | 'style' | 'clothing-intro' | 'ai-intro' | 'complete';
+type Step = 'welcome' | 'profile' | 'measurements' | 'style' | 'clothing-intro' | 'ai-intro' | 'complete';
 
 export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const { user } = useAuth();
   const { t, language, setLanguage } = useLanguage();
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<Step>('welcome');
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Profile data
   const [name, setName] = useState('');
@@ -38,6 +42,14 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [yearOfBirth, setYearOfBirth] = useState('');
   const [heightCm, setHeightCm] = useState('');
   const [weightKg, setWeightKg] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  // Body measurements
+  const [chestCm, setChestCm] = useState('');
+  const [waistCm, setWaistCm] = useState('');
+  const [hipsCm, setHipsCm] = useState('');
+  const [shoulderWidthCm, setShoulderWidthCm] = useState('');
+  const [inseamCm, setInseamCm] = useState('');
 
   // Style tags
   const [allStyleTags, setAllStyleTags] = useState<StyleTag[]>([]);
@@ -54,7 +66,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     fetchStyleTags();
   }, []);
 
-  const steps: Step[] = ['welcome', 'profile', 'style', 'clothing-intro', 'ai-intro', 'complete'];
+  const steps: Step[] = ['welcome', 'profile', 'measurements', 'style', 'clothing-intro', 'ai-intro', 'complete'];
   const currentIndex = steps.indexOf(step);
   const progress = ((currentIndex) / (steps.length - 1)) * 100;
 
@@ -68,8 +80,6 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
 
   const handleCreateStyleTag = async (name: string) => {
-    // For now, we don't allow creating new style tags during onboarding
-    // They can only select from existing ones
     toast({
       title: language === 'es' ? 'Selecciona de las opciones disponibles' : 'Select from available options',
       description: language === 'es' ? 'Podrás personalizar más tarde' : 'You can customize later',
@@ -106,6 +116,47 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     const cleaned = value.toLowerCase().replace(/[^a-z0-9._]/g, '');
     setUsername(cleaned);
     setUsernameError(validateUsername(cleaned));
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploadingAvatar(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}/avatar.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('clothing-images')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = await supabase.storage
+        .from('clothing-images')
+        .createSignedUrl(filePath, 60 * 60 * 24 * 365);
+
+      if (urlData?.signedUrl) {
+        await supabase
+          .from('profiles')
+          .update({ avatar_url: urlData.signedUrl })
+          .eq('user_id', user.id);
+
+        setAvatarUrl(urlData.signedUrl);
+        toast({
+          title: language === 'es' ? '¡Foto subida!' : 'Photo uploaded!',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: t('error'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const handleNext = async () => {
@@ -196,7 +247,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     setSaving(true);
 
     try {
-      // Save profile
+      // Save profile with measurements
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
@@ -205,6 +256,11 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           year_of_birth: parseInt(yearOfBirth),
           height_cm: heightCm ? parseFloat(heightCm) : null,
           weight_kg: weightKg ? parseFloat(weightKg) : null,
+          chest_cm: chestCm ? parseFloat(chestCm) : null,
+          waist_cm: waistCm ? parseFloat(waistCm) : null,
+          hips_cm: hipsCm ? parseFloat(hipsCm) : null,
+          shoulder_width_cm: shoulderWidthCm ? parseFloat(shoulderWidthCm) : null,
+          inseam_cm: inseamCm ? parseFloat(inseamCm) : null,
           onboarding_completed: true,
         })
         .eq('user_id', user.id);
@@ -251,7 +307,6 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   };
 
   const handleSkipToEnd = async () => {
-    // Still require profile and style to be completed
     if (step === 'clothing-intro' || step === 'ai-intro') {
       setStep('complete');
     }
@@ -326,6 +381,45 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Profile Picture - Prominent */}
+            <div className="flex flex-col items-center gap-3 p-4 bg-secondary/30 rounded-xl border-2 border-dashed border-primary/30">
+              <div className="relative">
+                <Avatar className="h-24 w-24 ring-4 ring-primary/20">
+                  <AvatarImage src={avatarUrl || undefined} />
+                  <AvatarFallback className="text-2xl bg-primary/10">
+                    {name?.[0]?.toUpperCase() || '?'}
+                  </AvatarFallback>
+                </Avatar>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="absolute -bottom-2 -right-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-lg"
+                >
+                  {uploadingAvatar ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Camera className="h-5 w-5" />
+                  )}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  className="sr-only"
+                />
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium">
+                  {language === 'es' ? 'Añade tu foto de perfil' : 'Add your profile photo'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {language === 'es' ? 'Haz clic en el icono de cámara' : 'Click the camera icon'}
+                </p>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="name">{t('name')} *</Label>
               <Input
@@ -409,6 +503,25 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Body Measurements */}
+      {step === 'measurements' && (
+        <BodyMeasurementsStep
+          language={language}
+          chestCm={chestCm}
+          waistCm={waistCm}
+          hipsCm={hipsCm}
+          shoulderWidthCm={shoulderWidthCm}
+          inseamCm={inseamCm}
+          onChestChange={setChestCm}
+          onWaistChange={setWaistCm}
+          onHipsChange={setHipsCm}
+          onShoulderChange={setShoulderWidthCm}
+          onInseamChange={setInseamCm}
+          onBack={handleBack}
+          onNext={handleNext}
+        />
       )}
 
       {/* Style Selection */}

@@ -294,46 +294,67 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          chest_cm: number | null
           created_at: string
           height_cm: number | null
+          hips_cm: number | null
           id: string
+          inseam_cm: number | null
           name: string
           onboarding_completed: boolean | null
           preferred_language: string | null
+          shoulder_width_cm: number | null
           style_preferences: string | null
+          theme: string | null
           updated_at: string
           user_id: string
           username: string | null
+          username_last_changed: string | null
+          waist_cm: number | null
           weight_kg: number | null
           year_of_birth: number | null
         }
         Insert: {
           avatar_url?: string | null
+          chest_cm?: number | null
           created_at?: string
           height_cm?: number | null
+          hips_cm?: number | null
           id?: string
+          inseam_cm?: number | null
           name?: string
           onboarding_completed?: boolean | null
           preferred_language?: string | null
+          shoulder_width_cm?: number | null
           style_preferences?: string | null
+          theme?: string | null
           updated_at?: string
           user_id: string
           username?: string | null
+          username_last_changed?: string | null
+          waist_cm?: number | null
           weight_kg?: number | null
           year_of_birth?: number | null
         }
         Update: {
           avatar_url?: string | null
+          chest_cm?: number | null
           created_at?: string
           height_cm?: number | null
+          hips_cm?: number | null
           id?: string
+          inseam_cm?: number | null
           name?: string
           onboarding_completed?: boolean | null
           preferred_language?: string | null
+          shoulder_width_cm?: number | null
           style_preferences?: string | null
+          theme?: string | null
           updated_at?: string
           user_id?: string
           username?: string | null
+          username_last_changed?: string | null
+          waist_cm?: number | null
           weight_kg?: number | null
           year_of_birth?: number | null
         }
