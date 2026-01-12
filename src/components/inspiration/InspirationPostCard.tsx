@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Heart, Share2, Shirt, LayoutGrid, Camera, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Heart, Share2, Shirt, LayoutGrid, Camera, Bookmark, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es, enUS } from 'date-fns/locale';
 
@@ -26,6 +26,7 @@ interface InspirationPost {
   created_at: string;
   profile?: Profile;
   hasLiked?: boolean;
+  hasSaved?: boolean;
   outfit?: {
     id: string;
     name: string;
@@ -42,12 +43,14 @@ interface InspirationPost {
 interface InspirationPostCardProps {
   post: InspirationPost;
   onLike: () => void;
+  onSave: () => void;
   currentUserId?: string;
 }
 
 export default function InspirationPostCard({
   post,
   onLike,
+  onSave,
   currentUserId,
 }: InspirationPostCardProps) {
   const { language } = useLanguage();
@@ -161,20 +164,35 @@ export default function InspirationPostCard({
             </Badge>
           )}
 
-          {/* Like button overlay */}
-          <Button
-            variant="secondary"
-            size="icon"
-            className={`absolute right-2 top-2 h-9 w-9 transition-all ${
-              post.hasLiked ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : ''
-            }`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onLike();
-            }}
-          >
-            <Heart className={`h-4 w-4 ${post.hasLiked ? 'fill-current' : ''}`} />
-          </Button>
+          {/* Action buttons overlay */}
+          <div className="absolute right-2 top-2 flex flex-col gap-1">
+            <Button
+              variant="secondary"
+              size="icon"
+              className={`h-9 w-9 transition-all ${
+                post.hasLiked ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : ''
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onLike();
+              }}
+            >
+              <Heart className={`h-4 w-4 ${post.hasLiked ? 'fill-current' : ''}`} />
+            </Button>
+            <Button
+              variant="secondary"
+              size="icon"
+              className={`h-9 w-9 transition-all ${
+                post.hasSaved ? 'bg-primary/20 text-primary hover:bg-primary/30' : ''
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSave();
+              }}
+            >
+              <Bookmark className={`h-4 w-4 ${post.hasSaved ? 'fill-current' : ''}`} />
+            </Button>
+          </div>
         </div>
 
         {/* Content */}
@@ -220,6 +238,18 @@ export default function InspirationPostCard({
             >
               <Heart className={`h-4 w-4 ${post.hasLiked ? 'fill-current' : ''}`} />
               {post.likes_count}
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSave();
+              }}
+              className={`flex items-center gap-1.5 text-sm transition-colors ${
+                post.hasSaved ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Bookmark className={`h-4 w-4 ${post.hasSaved ? 'fill-current' : ''}`} />
+              {language === 'es' ? 'Guardar' : 'Save'}
             </button>
             <button 
               onClick={(e) => e.stopPropagation()}
@@ -362,6 +392,15 @@ export default function InspirationPostCard({
                 >
                   <Heart className={`h-5 w-5 ${post.hasLiked ? 'fill-current' : ''}`} />
                   {post.likes_count} {language === 'es' ? 'me gusta' : 'likes'}
+                </button>
+                <button
+                  onClick={onSave}
+                  className={`flex items-center gap-2 text-sm transition-colors ${
+                    post.hasSaved ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Bookmark className={`h-5 w-5 ${post.hasSaved ? 'fill-current' : ''}`} />
+                  {language === 'es' ? 'Guardar' : 'Save'}
                 </button>
                 <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
                   <Share2 className="h-5 w-5" />
