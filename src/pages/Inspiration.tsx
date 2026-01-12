@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Plus, TrendingUp, Clock, Sparkles, Heart } from 'lucide-react';
+import { Search, Plus, TrendingUp, Clock, Sparkles, Heart, RefreshCw } from 'lucide-react';
 import InspirationPostCard from '@/components/inspiration/InspirationPostCard';
 import CreatePostDialog from '@/components/inspiration/CreatePostDialog';
 
@@ -49,10 +49,12 @@ export default function Inspiration() {
   
   const [posts, setPosts] = useState<InspirationPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'foryou' | 'trending' | 'recent'>('foryou');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [userStyleTags, setUserStyleTags] = useState<string[]>([]);
+  const [userStyleNames, setUserStyleNames] = useState<string[]>([]);
 
   // Fetch user's style tags on mount
   useEffect(() => {
@@ -65,15 +67,75 @@ export default function Inspiration() {
         .eq('user_id', user.id);
       
       if (data) {
-        const tags = data
-          .map((item: any) => item.style_tag?.name?.toLowerCase())
+        const names = data
+          .map((item: any) => item.style_tag?.name)
           .filter(Boolean);
+        const tags = names.map((n: string) => n.toLowerCase());
         setUserStyleTags(tags);
+        setUserStyleNames(names);
       }
     };
     
     fetchUserStyles();
   }, [user]);
+
+  // Handle refresh feed - triggers personalized content generation
+  const handleRefreshFeed = async () => {
+    if (!user || refreshing) return;
+    
+    setRefreshing(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-inspiration`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            userStyles: userStyleNames,
+          }),
+        }
+      );
+
+      const result = await response.json();
+      
+      if (result.skipped) {
+        toast({
+          title: language === 'es' ? 'Feed actualizado' : 'Feed is fresh',
+          description: language === 'es' 
+            ? 'Tu feed ya tiene contenido personalizado' 
+            : 'Your feed already has personalized content',
+        });
+      } else if (result.success) {
+        toast({
+          title: language === 'es' ? '¡Feed actualizado!' : 'Feed refreshed!',
+          description: language === 'es' 
+            ? `Se añadieron ${result.stats?.posts || 0} nuevas publicaciones` 
+            : `Added ${result.stats?.posts || 0} new posts`,
+        });
+        // Refresh posts after seeding
+        await fetchPosts();
+      }
+    } catch (error) {
+      console.error('Refresh feed error:', error);
+      toast({
+        title: language === 'es' ? 'Error' : 'Error',
+        description: language === 'es' 
+          ? 'No se pudo actualizar el feed' 
+          : 'Failed to refresh feed',
+        variant: 'destructive',
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const fetchPosts = useCallback(async () => {
     if (!user) return;
@@ -349,10 +411,21 @@ export default function Inspiration() {
           </p>
         </div>
 
-        <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          {language === 'es' ? 'Publicar' : 'Post'}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={handleRefreshFeed} 
+            disabled={refreshing}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {language === 'es' ? 'Actualizar' : 'Refresh'}
+          </Button>
+          <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            {language === 'es' ? 'Publicar' : 'Post'}
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
