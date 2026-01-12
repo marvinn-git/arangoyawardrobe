@@ -278,9 +278,14 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       const { error: tagsError } = await supabase.from('user_style_tags').insert(tagsToInsert);
       if (tagsError) throw tagsError;
 
-      // Seed inspiration content for new user (runs in background)
+      // Seed personalized inspiration content for new user (runs in background)
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
+        // Get style names for personalization
+        const userStyleNames = selectedStyleTagIds
+          .map(id => allStyleTags.find(t => t.id === id)?.name)
+          .filter(Boolean) as string[];
+        
         fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-inspiration`,
           {
@@ -289,6 +294,9 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${session.access_token}`,
             },
+            body: JSON.stringify({
+              userStyles: userStyleNames,
+            }),
           }
         ).catch((err) => console.log('Inspiration seeding started in background:', err));
       }

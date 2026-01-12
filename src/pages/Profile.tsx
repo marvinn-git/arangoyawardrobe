@@ -175,6 +175,29 @@ export default function Profile() {
       const { error: tagsError } = await supabase.from('user_style_tags').insert(tagsToInsert);
       if (tagsError) throw tagsError;
 
+      // Trigger background refresh of inspiration content based on new styles
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        const userStyleNames = selectedStyleTagIds
+          .map(id => allStyleTags.find(t => t.id === id)?.name)
+          .filter(Boolean) as string[];
+        
+        fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-inspiration`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              userStyles: userStyleNames,
+              refreshMode: true,
+            }),
+          }
+        ).catch(() => {}); // Silent background operation
+      }
+
       setLanguage(preferredLanguage);
       toast({ title: t('success'), description: t('profileUpdated') });
     } catch (error: any) {
