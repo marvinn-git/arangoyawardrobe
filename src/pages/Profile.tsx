@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { User, Loader2, Camera } from 'lucide-react';
 import ThemeSelector from '@/components/profile/ThemeSelector';
 import UsernameEditor from '@/components/profile/UsernameEditor';
+import { BodyMeasurementsEditor } from '@/components/profile/BodyMeasurementsEditor';
 
 interface Profile {
   id: string;
@@ -28,6 +29,11 @@ interface Profile {
   username: string | null;
   height_cm: number | null;
   weight_kg: number | null;
+  chest_cm: number | null;
+  waist_cm: number | null;
+  hips_cm: number | null;
+  shoulder_width_cm: number | null;
+  inseam_cm: number | null;
   avatar_url: string | null;
   style_preferences: string | null;
   preferred_language: 'en' | 'es';
@@ -56,8 +62,6 @@ export default function Profile() {
   const [username, setUsername] = useState('');
   const [usernameLastChanged, setUsernameLastChanged] = useState<string | null>(null);
   const [yearOfBirth, setYearOfBirth] = useState('');
-  const [heightCm, setHeightCm] = useState('');
-  const [weightKg, setWeightKg] = useState('');
   const [stylePreferences, setStylePreferences] = useState('');
   const [preferredLanguage, setPreferredLanguage] = useState<'en' | 'es'>('en');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -92,8 +96,6 @@ export default function Profile() {
         setUsername(data.username || '');
         setUsernameLastChanged(data.username_last_changed || null);
         setYearOfBirth(data.year_of_birth?.toString() || '');
-        setHeightCm(data.height_cm?.toString() || '');
-        setWeightKg(data.weight_kg?.toString() || '');
         setStylePreferences(data.style_preferences || '');
         setPreferredLanguage((data.preferred_language as 'en' | 'es') || 'en');
         setAvatarUrl(data.avatar_url);
@@ -161,8 +163,6 @@ export default function Profile() {
         .update({
           name: name.trim(),
           year_of_birth: yearOfBirth ? parseInt(yearOfBirth) : null,
-          height_cm: heightCm ? parseFloat(heightCm) : null,
-          weight_kg: weightKg ? parseFloat(weightKg) : null,
           style_preferences: stylePreferences.trim() || null,
           preferred_language: preferredLanguage,
         })
@@ -251,16 +251,21 @@ export default function Profile() {
               <Input id="yearOfBirth" type="number" value={yearOfBirth} onChange={(e) => setYearOfBirth(e.target.value)} placeholder="2000" />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="height">{t('height')}</Label>
-                <Input id="height" type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} placeholder="175" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="weight">{t('weight')}</Label>
-                <Input id="weight" type="number" value={weightKg} onChange={(e) => setWeightKg(e.target.value)} placeholder="70" />
-              </div>
-            </div>
+            {/* Body Measurements Section */}
+            {user && (
+              <BodyMeasurementsEditor
+                userId={user.id}
+                initialMeasurements={{
+                  height_cm: profile?.height_cm ?? null,
+                  weight_kg: profile?.weight_kg ?? null,
+                  chest_cm: profile?.chest_cm ?? null,
+                  waist_cm: profile?.waist_cm ?? null,
+                  hips_cm: profile?.hips_cm ?? null,
+                  shoulder_width_cm: profile?.shoulder_width_cm ?? null,
+                  inseam_cm: profile?.inseam_cm ?? null,
+                }}
+              />
+            )}
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
