@@ -237,7 +237,7 @@
     font-family: 'Outfit', sans-serif;
   }
 
-  /* Background style overrides */
+  /* Light mode background style overrides */
   [data-bg="soft-gray"] body,
   [data-bg="soft-gray"].min-h-screen {
     background-color: hsl(220 15% 96%);
@@ -261,6 +261,36 @@
   [data-bg="peach"] body,
   [data-bg="peach"].min-h-screen {
     background-color: hsl(20 50% 96%);
+  }
+
+  /* Dark mode background style overrides */
+  .dark[data-bg="default"] body,
+  .dark[data-bg="default"].min-h-screen {
+    background-color: hsl(30 15% 8%);
+  }
+  .dark[data-bg="soft-gray"] body,
+  .dark[data-bg="soft-gray"].min-h-screen {
+    background-color: hsl(220 15% 10%);
+  }
+  .dark[data-bg="cream"] body,
+  .dark[data-bg="cream"].min-h-screen {
+    background-color: hsl(45 20% 8%);
+  }
+  .dark[data-bg="light-blue"] body,
+  .dark[data-bg="light-blue"].min-h-screen {
+    background-color: hsl(210 30% 10%);
+  }
+  .dark[data-bg="mint"] body,
+  .dark[data-bg="mint"].min-h-screen {
+    background-color: hsl(160 20% 8%);
+  }
+  .dark[data-bg="lavender"] body,
+  .dark[data-bg="lavender"].min-h-screen {
+    background-color: hsl(270 20% 10%);
+  }
+  .dark[data-bg="peach"] body,
+  .dark[data-bg="peach"].min-h-screen {
+    background-color: hsl(20 30% 9%);
   }
 
   h1, h2, h3, h4, h5, h6 {
