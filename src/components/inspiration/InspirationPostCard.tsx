@@ -110,7 +110,7 @@ export default function InspirationPostCard({
   return (
     <>
       <Card 
-        className="group overflow-hidden card-elevated cursor-pointer"
+        className="group overflow-hidden card-elevated cursor-pointer transition-transform duration-200 active:scale-[0.98]"
         onClick={() => setShowDetail(true)}
       >
         {/* Image */}
@@ -120,6 +120,8 @@ export default function InspirationPostCard({
             <img
               src={imageUrl}
               alt={post.caption || 'Inspiration post'}
+              loading="lazy"
+              decoding="async"
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
             />
           ) : hasMultipleItems ? (
@@ -130,12 +132,14 @@ export default function InspirationPostCard({
                   <img
                     src={item.image_url}
                     alt={item.name}
+                    loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                   {/* Show remaining count on last tile if more than 4 items */}
                   {index === 3 && remainingCount > 0 && (
                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                      <span className="text-white text-lg font-bold">+{remainingCount}</span>
+                      <span className="text-white text-base sm:text-lg font-bold">+{remainingCount}</span>
                     </div>
                   )}
                 </div>
@@ -147,29 +151,29 @@ export default function InspirationPostCard({
             </div>
           ) : (
             <div className="flex h-full items-center justify-center text-muted-foreground">
-              <Shirt className="h-12 w-12" />
+              <Shirt className="h-10 w-10 sm:h-12 sm:w-12" />
             </div>
           )}
 
           {/* Post type badge */}
-          <Badge className="absolute left-2 top-2 gap-1" variant="secondary">
+          <Badge className="absolute left-1.5 top-1.5 sm:left-2 sm:top-2 gap-1 text-[10px] sm:text-xs px-1.5 sm:px-2" variant="secondary">
             {getPostTypeIcon()}
-            {getPostTypeLabel()}
+            <span className="hidden xs:inline">{getPostTypeLabel()}</span>
           </Badge>
 
           {/* Item count badge for outfits */}
           {hasMultipleItems && (
-            <Badge className="absolute right-2 bottom-2" variant="secondary">
+            <Badge className="absolute right-1.5 bottom-1.5 sm:right-2 sm:bottom-2 text-[10px] sm:text-xs px-1.5 sm:px-2" variant="secondary">
               {outfitItems.length} {language === 'es' ? 'prendas' : 'items'}
             </Badge>
           )}
 
           {/* Action buttons overlay */}
-          <div className="absolute right-2 top-2 flex flex-col gap-1">
+          <div className="absolute right-1.5 top-1.5 sm:right-2 sm:top-2 flex flex-col gap-1">
             <Button
               variant="secondary"
               size="icon"
-              className={`h-9 w-9 transition-all ${
+              className={`h-7 w-7 sm:h-9 sm:w-9 transition-all ${
                 post.hasLiked ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : ''
               }`}
               onClick={(e) => {
@@ -177,12 +181,12 @@ export default function InspirationPostCard({
                 onLike();
               }}
             >
-              <Heart className={`h-4 w-4 ${post.hasLiked ? 'fill-current' : ''}`} />
+              <Heart className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${post.hasLiked ? 'fill-current' : ''}`} />
             </Button>
             <Button
               variant="secondary"
               size="icon"
-              className={`h-9 w-9 transition-all ${
+              className={`h-7 w-7 sm:h-9 sm:w-9 transition-all ${
                 post.hasSaved ? 'bg-primary/20 text-primary hover:bg-primary/30' : ''
               }`}
               onClick={(e) => {
@@ -190,53 +194,53 @@ export default function InspirationPostCard({
                 onSave();
               }}
             >
-              <Bookmark className={`h-4 w-4 ${post.hasSaved ? 'fill-current' : ''}`} />
+              <Bookmark className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${post.hasSaved ? 'fill-current' : ''}`} />
             </Button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-4 space-y-3">
+        <div className="p-2.5 sm:p-4 space-y-2 sm:space-y-3">
           {/* User info */}
           <div className="flex items-center gap-2">
-            <Avatar className="h-8 w-8">
+            <Avatar className="h-6 w-6 sm:h-8 sm:w-8">
               <AvatarImage src={post.profile?.avatar_url || undefined} />
-              <AvatarFallback className="text-xs">
+              <AvatarFallback className="text-[10px] sm:text-xs">
                 {post.profile?.username?.[0]?.toUpperCase() || '?'}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">
+              <p className="text-xs sm:text-sm font-medium truncate">
                 @{post.profile?.username || 'anonymous'}
               </p>
-              <p className="text-xs text-muted-foreground">{timeAgo}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground">{timeAgo}</p>
             </div>
           </div>
 
           {/* Caption */}
           {post.caption && (
-            <p className="text-sm line-clamp-2">{post.caption}</p>
+            <p className="text-xs sm:text-sm line-clamp-2">{post.caption}</p>
           )}
 
           {/* Item/outfit name */}
           {(post.outfit?.name || post.clothing_item?.name) && (
-            <p className="text-sm text-muted-foreground truncate">
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">
               {post.outfit?.name || post.clothing_item?.name}
             </p>
           )}
 
           {/* Actions */}
-          <div className="flex items-center gap-4 pt-1">
+          <div className="flex items-center gap-3 sm:gap-4 pt-0.5 sm:pt-1">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onLike();
               }}
-              className={`flex items-center gap-1.5 text-sm transition-colors ${
+              className={`flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm transition-colors ${
                 post.hasLiked ? 'text-red-500' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Heart className={`h-4 w-4 ${post.hasLiked ? 'fill-current' : ''}`} />
+              <Heart className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${post.hasLiked ? 'fill-current' : ''}`} />
               {post.likes_count}
             </button>
             <button
@@ -244,18 +248,18 @@ export default function InspirationPostCard({
                 e.stopPropagation();
                 onSave();
               }}
-              className={`flex items-center gap-1.5 text-sm transition-colors ${
+              className={`flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm transition-colors ${
                 post.hasSaved ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Bookmark className={`h-4 w-4 ${post.hasSaved ? 'fill-current' : ''}`} />
-              {language === 'es' ? 'Guardar' : 'Save'}
+              <Bookmark className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${post.hasSaved ? 'fill-current' : ''}`} />
+              <span className="hidden xs:inline">{language === 'es' ? 'Guardar' : 'Save'}</span>
             </button>
             <button 
               onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+              className="flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm text-muted-foreground hover:text-foreground"
             >
-              <Share2 className="h-4 w-4" />
+              <Share2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </button>
           </div>
         </div>
@@ -289,6 +293,8 @@ export default function InspirationPostCard({
                   <img
                     src={outfitItems[currentItemIndex]?.image_url}
                     alt={outfitItems[currentItemIndex]?.name}
+                    loading="lazy"
+                    decoding="async"
                     className="h-full w-full object-cover"
                   />
                 </div>
@@ -334,6 +340,8 @@ export default function InspirationPostCard({
                 <img
                   src={imageUrl}
                   alt={post.caption || 'Post'}
+                  loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover"
                 />
               </div>
@@ -345,13 +353,13 @@ export default function InspirationPostCard({
 
             {/* Horizontal scrollable thumbnails for outfits */}
             {hasMultipleItems && (
-              <div className="p-4 border-t">
+              <div className="p-3 sm:p-4 border-t">
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {outfitItems.map((item, index) => (
                     <button
                       key={item.id}
                       onClick={() => setCurrentItemIndex(index)}
-                      className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                      className={`flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 rounded-lg overflow-hidden border-2 transition-all ${
                         index === currentItemIndex 
                           ? 'border-primary ring-2 ring-primary/30' 
                           : 'border-transparent hover:border-muted-foreground/30'
@@ -360,6 +368,8 @@ export default function InspirationPostCard({
                       <img
                         src={item.image_url}
                         alt={item.name}
+                        loading="lazy"
+                        decoding="async"
                         className="h-full w-full object-cover"
                       />
                     </button>

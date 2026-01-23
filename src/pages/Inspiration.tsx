@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -443,33 +443,35 @@ export default function Inspiration() {
     });
   };
 
-  const filteredPosts = posts.filter(post => {
-    // Filter by saved tab
-    if (activeTab === 'saved' && !post.hasSaved) return false;
-    
-    // Filter by search query
-    if (!searchQuery) return true;
+  const filteredPosts = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    return (
-      post.caption?.toLowerCase().includes(query) ||
-      post.profile?.username?.toLowerCase().includes(query) ||
-      post.outfit?.name?.toLowerCase().includes(query) ||
-      post.clothing_item?.name?.toLowerCase().includes(query)
-    );
-  });
+    return posts.filter(post => {
+      // Filter by saved tab
+      if (activeTab === 'saved' && !post.hasSaved) return false;
+      
+      // Filter by search query
+      if (!query) return true;
+      return (
+        post.caption?.toLowerCase().includes(query) ||
+        post.profile?.username?.toLowerCase().includes(query) ||
+        post.outfit?.name?.toLowerCase().includes(query) ||
+        post.clothing_item?.name?.toLowerCase().includes(query)
+      );
+    });
+  }, [posts, searchQuery, activeTab]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-display font-bold">
+          <h1 className="text-2xl sm:text-3xl font-display font-bold">
             {language === 'es' ? 'Inspiración' : 'Inspiration'}
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground text-sm sm:text-base mt-0.5 sm:mt-1">
             {language === 'es' 
-              ? 'Descubre outfits y estilos de la comunidad' 
-              : 'Discover outfits and styles from the community'}
+              ? 'Descubre outfits de la comunidad' 
+              : 'Discover community outfits'}
           </p>
         </div>
 
@@ -479,73 +481,86 @@ export default function Inspiration() {
             onClick={handleRefreshFeed} 
             disabled={refreshing}
             className="gap-2"
+            size="sm"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-            {language === 'es' ? 'Actualizar' : 'Refresh'}
+            <span className="hidden xs:inline">{language === 'es' ? 'Actualizar' : 'Refresh'}</span>
           </Button>
-          <Button onClick={() => setShowCreateDialog(true)} className="gap-2">
+          <Button onClick={() => setShowCreateDialog(true)} className="gap-2" size="sm">
             <Plus className="h-4 w-4" />
-            {language === 'es' ? 'Publicar' : 'Post'}
+            <span className="hidden xs:inline">{language === 'es' ? 'Publicar' : 'Post'}</span>
+            <span className="xs:hidden">New</span>
           </Button>
         </div>
       </div>
 
       {/* Search */}
-      <div className="relative max-w-md">
+      <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder={language === 'es' ? 'Buscar inspiración...' : 'Search inspiration...'}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
+          className="pl-10 h-9 sm:h-10"
         />
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-        <TabsList>
-          <TabsTrigger value="foryou" className="gap-2">
-            <Heart className="h-4 w-4" />
-            {language === 'es' ? 'Para ti' : 'For You'}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="overflow-x-auto">
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="foryou" className="gap-1.5 text-xs sm:text-sm px-2 sm:px-3">
+            <Heart className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="hidden xs:inline">{language === 'es' ? 'Para ti' : 'For You'}</span>
+            <span className="xs:hidden">You</span>
           </TabsTrigger>
-          <TabsTrigger value="trending" className="gap-2">
-            <TrendingUp className="h-4 w-4" />
-            {language === 'es' ? 'Tendencias' : 'Trending'}
+          <TabsTrigger value="trending" className="gap-1.5 text-xs sm:text-sm px-2 sm:px-3">
+            <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="hidden xs:inline">{language === 'es' ? 'Tendencias' : 'Trending'}</span>
+            <span className="xs:hidden">Hot</span>
           </TabsTrigger>
-          <TabsTrigger value="recent" className="gap-2">
-            <Clock className="h-4 w-4" />
-            {language === 'es' ? 'Reciente' : 'Recent'}
+          <TabsTrigger value="recent" className="gap-1.5 text-xs sm:text-sm px-2 sm:px-3">
+            <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="hidden xs:inline">{language === 'es' ? 'Reciente' : 'Recent'}</span>
+            <span className="xs:hidden">New</span>
           </TabsTrigger>
-          <TabsTrigger value="saved" className="gap-2">
-            <Bookmark className="h-4 w-4" />
-            {language === 'es' ? 'Guardados' : 'Saved'}
+          <TabsTrigger value="saved" className="gap-1.5 text-xs sm:text-sm px-2 sm:px-3">
+            <Bookmark className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="hidden xs:inline">{language === 'es' ? 'Guardados' : 'Saved'}</span>
+            <span className="xs:hidden">Save</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="mt-6">
+        <TabsContent value={activeTab} className="mt-4 sm:mt-6">
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="aspect-[3/4] rounded-xl" />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="aspect-[3/4] w-full rounded-lg" />
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-6 w-6 rounded-full" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                  <Skeleton className="h-3 w-3/4" />
+                </div>
               ))}
             </div>
           ) : filteredPosts.length === 0 ? (
-            <div className="text-center py-16">
-              <Sparkles className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">
+            <div className="text-center py-12 sm:py-16 px-4">
+              <Sparkles className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-base sm:text-lg font-medium">
                 {language === 'es' ? 'Sin publicaciones aún' : 'No posts yet'}
               </h3>
-              <p className="text-muted-foreground mt-1">
+              <p className="text-muted-foreground text-sm sm:text-base mt-1">
                 {language === 'es' 
                   ? '¡Sé el primero en compartir tu estilo!' 
                   : 'Be the first to share your style!'}
               </p>
-              <Button onClick={() => setShowCreateDialog(true)} className="mt-4">
+              <Button onClick={() => setShowCreateDialog(true)} className="mt-4" size="sm">
                 {language === 'es' ? 'Crear publicación' : 'Create post'}
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {filteredPosts.map((post) => (
                 <InspirationPostCard
                   key={post.id}
