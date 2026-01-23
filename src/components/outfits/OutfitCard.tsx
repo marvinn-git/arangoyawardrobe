@@ -42,13 +42,15 @@ export default function OutfitCard({
   const { t, language } = useLanguage();
 
   return (
-    <Card className="group overflow-hidden card-elevated">
+    <Card className="group overflow-hidden card-elevated transition-transform duration-200 active:scale-[0.98]">
       {/* Image preview grid */}
       <div className="relative aspect-[4/3] overflow-hidden bg-secondary">
         {outfit.photo_url ? (
           <img
             src={outfit.photo_url}
             alt={outfit.name}
+            loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover"
           />
         ) : outfit.items.length > 0 ? (
@@ -61,6 +63,8 @@ export default function OutfitCard({
                 <img
                   src={item.image_url}
                   alt={item.name}
+                  loading="lazy"
+                  decoding="async"
                   className="h-full w-full object-cover"
                 />
               </div>
@@ -71,7 +75,7 @@ export default function OutfitCard({
               ))}
           </div>
         ) : (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
+          <div className="flex h-full items-center justify-center text-muted-foreground text-sm">
             No items
           </div>
         )}
@@ -126,22 +130,22 @@ export default function OutfitCard({
         </div>
       </div>
 
-      <div className="p-4">
-        <h3 className="font-medium truncate">{outfit.name}</h3>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="p-2.5 sm:p-4">
+        <h3 className="font-medium truncate text-sm sm:text-base">{outfit.name}</h3>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
           {outfit.items.length} {outfit.items.length === 1 ? 'item' : 'items'}
         </p>
         
         {outfit.tags && outfit.tags.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
-            {outfit.tags.slice(0, 3).map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-xs">
+          <div className="mt-1.5 sm:mt-2 flex flex-wrap gap-1">
+            {outfit.tags.slice(0, 2).map((tag) => (
+              <Badge key={tag} variant="secondary" className="text-[10px] sm:text-xs px-1.5 py-0">
                 {tag}
               </Badge>
             ))}
-            {outfit.tags.length > 3 && (
-              <Badge variant="secondary" className="text-xs">
-                +{outfit.tags.length - 3}
+            {outfit.tags.length > 2 && (
+              <Badge variant="secondary" className="text-[10px] sm:text-xs px-1.5 py-0">
+                +{outfit.tags.length - 2}
               </Badge>
             )}
           </div>
