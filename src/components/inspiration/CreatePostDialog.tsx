@@ -160,6 +160,20 @@ export default function CreatePostDialog({
           .from('outfits')
           .update({ is_public: true })
           .eq('id', selectedOutfitId);
+
+        // Also make the clothing items in this outfit public so they display in the feed
+        const { data: outfitItemsData } = await supabase
+          .from('outfit_items')
+          .select('clothing_item_id')
+          .eq('outfit_id', selectedOutfitId);
+
+        if (outfitItemsData && outfitItemsData.length > 0) {
+          const itemIds = outfitItemsData.map(oi => oi.clothing_item_id);
+          await supabase
+            .from('clothing_items')
+            .update({ is_public: true })
+            .in('id', itemIds);
+        }
       }
 
       if (postType === 'clothing_item' && selectedClothingId) {
