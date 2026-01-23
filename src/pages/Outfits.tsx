@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Search, Star, LayoutGrid, AlertCircle, Wand2, ArrowUpCircle } from 'lucide-react';
 import OutfitCard from '@/components/outfits/OutfitCard';
+import { Skeleton } from '@/components/ui/skeleton';
 import OutfitBuilder from '@/components/outfits/OutfitBuilder';
 import OutfitDetailDialog from '@/components/outfits/OutfitDetailDialog';
 import AIOutfitGenerator from '@/components/outfits/AIOutfitGenerator';
@@ -73,11 +74,11 @@ export default function Outfits() {
 
     setLoading(true);
     try {
-      // Fetch outfits, clothes, and categories
-      const [outfitsRes, clothesRes, categoriesRes] = await Promise.all([
+      // Fetch ALL data in parallel - single batch for outfit_items (no N+1)
+      const [outfitsRes, clothesRes, categoriesRes, allOutfitItemsRes] = await Promise.all([
         supabase
           .from('outfits')
-          .select('*')
+          .select('id, name, photo_url, is_favorite, tags, notes, created_at')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false }),
         supabase
@@ -88,36 +89,40 @@ export default function Outfits() {
           .from('categories')
           .select('id, name, name_es, is_top, is_bottom')
           .eq('user_id', user.id),
+        supabase
+          .from('outfit_items')
+          .select('outfit_id, clothing_item_id'),
       ]);
 
       if (clothesRes.data) setClothes(clothesRes.data);
       if (categoriesRes.data) setCategories(categoriesRes.data);
 
-      if (outfitsRes.data && clothesRes.data && categoriesRes.data) {
-        // Fetch outfit items for each outfit
-        const outfitsWithItems = await Promise.all(
-          outfitsRes.data.map(async (outfit) => {
-            const { data: itemsData } = await supabase
-              .from('outfit_items')
-              .select('clothing_item_id')
-              .eq('outfit_id', outfit.id);
+      if (outfitsRes.data && clothesRes.data && categoriesRes.data && allOutfitItemsRes.data) {
+        // Create lookup maps for O(1) access
+        const clothesMap = new Map(clothesRes.data.map(c => [c.id, c]));
+        const categoriesMap = new Map(categoriesRes.data.map(c => [c.id, c]));
+        
+        // Group outfit items by outfit_id
+        const outfitItemsMap = new Map<string, string[]>();
+        for (const item of allOutfitItemsRes.data) {
+          const existing = outfitItemsMap.get(item.outfit_id) || [];
+          existing.push(item.clothing_item_id);
+          outfitItemsMap.set(item.outfit_id, existing);
+        }
 
-            const itemIds = itemsData?.map((i) => i.clothing_item_id) || [];
-            const items = clothesRes.data?.filter((c) => itemIds.includes(c.id)) || [];
+        // Build outfits with items in memory (no additional queries)
+        const outfitsWithItems = outfitsRes.data.map((outfit) => {
+          const itemIds = outfitItemsMap.get(outfit.id) || [];
+          const items = itemIds
+            .map(id => clothesMap.get(id))
+            .filter((c): c is ClothingItem => !!c);
 
-            // Check if outfit is complete (has top and bottom)
-            const hasTop = items.some((item) => {
-              const cat = categoriesRes.data?.find((c) => c.id === item.category_id);
-              return cat?.is_top;
-            });
-            const hasBottom = items.some((item) => {
-              const cat = categoriesRes.data?.find((c) => c.id === item.category_id);
-              return cat?.is_bottom;
-            });
+          // Check completeness
+          const hasTop = items.some(item => categoriesMap.get(item.category_id || '')?.is_top);
+          const hasBottom = items.some(item => categoriesMap.get(item.category_id || '')?.is_bottom);
 
-            return { ...outfit, items, isComplete: hasTop && hasBottom };
-          })
-        );
+          return { ...outfit, items, isComplete: hasTop && hasBottom };
+        });
 
         setOutfits(outfitsWithItems);
       }
@@ -185,76 +190,86 @@ export default function Outfits() {
     setSelectedOutfit(null);
   };
 
-  const filteredOutfits = outfits.filter((outfit) => {
-    const matchesSearch = outfit.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTab = 
-      activeTab === 'all' || 
-      (activeTab === 'favorites' && outfit.is_favorite) ||
-      (activeTab === 'incomplete' && !outfit.isComplete);
-    return matchesSearch && matchesTab;
-  });
+  const filteredOutfits = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    return outfits.filter((outfit) => {
+      const matchesSearch = outfit.name.toLowerCase().includes(query);
+      const matchesTab = 
+        activeTab === 'all' || 
+        (activeTab === 'favorites' && outfit.is_favorite) ||
+        (activeTab === 'incomplete' && !outfit.isComplete);
+      return matchesSearch && matchesTab;
+    });
+  }, [outfits, searchQuery, activeTab]);
 
-  const incompleteCount = outfits.filter((o) => !o.isComplete).length;
+  const incompleteCount = useMemo(() => outfits.filter((o) => !o.isComplete).length, [outfits]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl font-semibold">{t('myOutfits')}</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="font-display text-2xl sm:text-3xl font-semibold">{t('myOutfits')}</h1>
+          <p className="text-muted-foreground text-sm sm:text-base mt-0.5 sm:mt-1">
             {outfits.length} outfits
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setShowBuilder(true)} className="gap-2">
+          <Button onClick={() => setShowBuilder(true)} className="gap-2" size="sm">
             <Plus className="h-4 w-4" />
-            {t('createOutfit')}
+            <span className="hidden xs:inline">{t('createOutfit')}</span>
+            <span className="xs:hidden">New</span>
           </Button>
           <Button 
             variant="outline" 
             onClick={() => setShowAIGenerator(true)} 
             className="gap-2"
+            size="sm"
           >
             <Wand2 className="h-4 w-4" />
-            {t('createWithAI')}
+            <span className="hidden sm:inline">{t('createWithAI')}</span>
+            <span className="sm:hidden">AI</span>
           </Button>
           <Button 
             variant="outline" 
             onClick={() => setShowAIUpgrade(true)} 
             className="gap-2"
+            size="sm"
           >
             <ArrowUpCircle className="h-4 w-4" />
-            {t('upgradeWithAI')}
+            <span className="hidden sm:inline">{t('upgradeWithAI')}</span>
+            <span className="sm:hidden">Upgrade</span>
           </Button>
         </div>
       </div>
 
       {/* Search and Tabs */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder={t('search')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 h-9 sm:h-10"
           />
         </div>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto">
-          <TabsList>
-            <TabsTrigger value="all" className="gap-2">
-              <LayoutGrid className="h-4 w-4" />
-              {t('allOutfits')}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:w-auto overflow-x-auto">
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="all" className="gap-1.5 text-xs sm:text-sm px-2.5 sm:px-3">
+              <LayoutGrid className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">{t('allOutfits')}</span>
+              <span className="xs:hidden">All</span>
             </TabsTrigger>
-            <TabsTrigger value="favorites" className="gap-2">
-              <Star className="h-4 w-4" />
-              {t('favorites')}
+            <TabsTrigger value="favorites" className="gap-1.5 text-xs sm:text-sm px-2.5 sm:px-3">
+              <Star className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">{t('favorites')}</span>
+              <span className="xs:hidden">Fav</span>
             </TabsTrigger>
             {incompleteCount > 0 && (
-              <TabsTrigger value="incomplete" className="gap-2">
-                <AlertCircle className="h-4 w-4" />
-                {t('outfitToMake')} ({incompleteCount})
+              <TabsTrigger value="incomplete" className="gap-1.5 text-xs sm:text-sm px-2.5 sm:px-3">
+                <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">{t('outfitToMake')}</span> ({incompleteCount})
               </TabsTrigger>
             )}
           </TabsList>
@@ -263,23 +278,29 @@ export default function Outfits() {
 
       {/* Grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-pulse text-muted-foreground">{t('loading')}</div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="space-y-3">
+              <Skeleton className="aspect-[4/3] w-full rounded-lg" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          ))}
         </div>
       ) : filteredOutfits.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-secondary">
-            <LayoutGrid className="h-8 w-8 text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-center px-4">
+          <div className="mb-4 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-secondary">
+            <LayoutGrid className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground" />
           </div>
-          <h3 className="font-display text-xl font-medium">{t('noOutfits')}</h3>
-          <p className="text-muted-foreground mt-1">{t('buildFirstOutfit')}</p>
-          <Button onClick={() => setShowBuilder(true)} className="mt-4 gap-2">
+          <h3 className="font-display text-lg sm:text-xl font-medium">{t('noOutfits')}</h3>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">{t('buildFirstOutfit')}</p>
+          <Button onClick={() => setShowBuilder(true)} className="mt-4 gap-2" size="sm">
             <Plus className="h-4 w-4" />
             {t('createOutfit')}
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {filteredOutfits.map((outfit) => (
             <div key={outfit.id} onClick={() => handleViewOutfit(outfit)} className="cursor-pointer">
               <OutfitCard
