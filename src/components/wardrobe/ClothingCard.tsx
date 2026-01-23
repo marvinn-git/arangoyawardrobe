@@ -52,11 +52,13 @@ export default function ClothingCard({
     : null;
 
   return (
-    <Card className="group overflow-hidden card-elevated">
+    <Card className="group overflow-hidden card-elevated transition-transform duration-200 active:scale-[0.98]">
       <div className="relative aspect-square overflow-hidden bg-secondary">
         <img
           src={item.image_url}
           alt={item.name}
+          loading="lazy"
+          decoding="async"
           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
         
@@ -64,25 +66,25 @@ export default function ClothingCard({
         <Button
           variant="secondary"
           size="icon"
-          className="absolute left-2 top-2 h-8 w-8"
+          className="absolute left-1.5 top-1.5 h-7 w-7 sm:left-2 sm:top-2 sm:h-8 sm:w-8"
           onClick={(e) => {
             e.stopPropagation();
             onToggleFavorite();
           }}
         >
           <Star
-            className={`h-4 w-4 ${
+            className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${
               item.is_favorite ? 'fill-accent text-accent' : ''
             }`}
           />
         </Button>
         
         {/* Overlay menu */}
-        <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="absolute right-1.5 top-1.5 sm:right-2 sm:top-2 opacity-0 transition-opacity group-hover:opacity-100">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="icon" className="h-8 w-8">
-                <MoreVertical className="h-4 w-4" />
+              <Button variant="secondary" size="icon" className="h-7 w-7 sm:h-8 sm:w-8">
+                <MoreVertical className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -100,15 +102,15 @@ export default function ClothingCard({
 
         {/* Accessory badge */}
         {item.is_accessory && (
-          <Badge className="absolute left-2 bottom-2" variant="secondary">
-            {language === 'es' ? 'Accesorio' : 'Accessory'}
+          <Badge className="absolute left-1.5 bottom-1.5 sm:left-2 sm:bottom-2 text-[10px] sm:text-xs" variant="secondary">
+            {language === 'es' ? 'Acc' : 'Acc'}
           </Badge>
         )}
       </div>
 
-      <div className="p-3">
-        <h3 className="font-medium truncate">{item.name}</h3>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+      <div className="p-2 sm:p-3">
+        <h3 className="font-medium truncate text-sm sm:text-base">{item.name}</h3>
+        <div className="mt-0.5 sm:mt-1 flex flex-wrap items-center gap-1 sm:gap-1.5 text-xs sm:text-sm text-muted-foreground">
           {categoryName && (
             <span className="truncate">{categoryName}</span>
           )}
@@ -120,12 +122,12 @@ export default function ClothingCard({
           )}
         </div>
         {item.color && (
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-1.5 sm:mt-2 flex items-center gap-1.5 sm:gap-2">
             <div
-              className="h-4 w-4 rounded-full border border-border"
+              className="h-3 w-3 sm:h-4 sm:w-4 rounded-full border border-border flex-shrink-0"
               style={{ backgroundColor: item.color }}
             />
-            <span className="text-xs text-muted-foreground capitalize">{item.color}</span>
+            <span className="text-[10px] sm:text-xs text-muted-foreground capitalize truncate">{item.color}</span>
           </div>
         )}
       </div>
