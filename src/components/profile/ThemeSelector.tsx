@@ -1,17 +1,44 @@
 import { useTheme, themes, backgroundStyles } from '@/contexts/ThemeContext';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import { Check, Palette, PaintBucket } from 'lucide-react';
+import { Check, Palette, PaintBucket, Moon, Sun } from 'lucide-react';
 
 interface ThemeSelectorProps {
   language: 'en' | 'es';
 }
 
 export default function ThemeSelector({ language }: ThemeSelectorProps) {
-  const { theme, setTheme, backgroundStyle, setBackgroundStyle } = useTheme();
+  const { theme, setTheme, backgroundStyle, setBackgroundStyle, darkMode, setDarkMode } = useTheme();
 
   return (
     <div className="space-y-6">
+      {/* Dark Mode Toggle */}
+      <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-card">
+        <div className="flex items-center gap-3">
+          {darkMode ? (
+            <Moon className="h-5 w-5 text-primary" />
+          ) : (
+            <Sun className="h-5 w-5 text-primary" />
+          )}
+          <div>
+            <Label className="text-base font-medium">
+              {language === 'es' ? 'Modo oscuro' : 'Dark Mode'}
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              {language === 'es' 
+                ? 'Cambia a una interfaz más oscura' 
+                : 'Switch to a darker interface'}
+            </p>
+          </div>
+        </div>
+        <Switch
+          checked={darkMode}
+          onCheckedChange={setDarkMode}
+          aria-label={language === 'es' ? 'Alternar modo oscuro' : 'Toggle dark mode'}
+        />
+      </div>
+
       {/* Theme Selection */}
       <div className="space-y-3">
         <Label className="flex items-center gap-2">
@@ -67,7 +94,7 @@ export default function ThemeSelector({ language }: ThemeSelectorProps) {
             >
               <div 
                 className="w-8 h-8 rounded-full border border-border/50 shadow-sm"
-                style={{ backgroundColor: bg.color }}
+                style={{ backgroundColor: darkMode ? bg.darkColor : bg.color }}
               />
               {backgroundStyle === bg.id && (
                 <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary flex items-center justify-center">

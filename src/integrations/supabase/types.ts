@@ -297,6 +297,7 @@ export type Database = {
           background_style: string | null
           chest_cm: number | null
           created_at: string
+          dark_mode: boolean | null
           height_cm: number | null
           hips_cm: number | null
           id: string
@@ -320,6 +321,7 @@ export type Database = {
           background_style?: string | null
           chest_cm?: number | null
           created_at?: string
+          dark_mode?: boolean | null
           height_cm?: number | null
           hips_cm?: number | null
           id?: string
@@ -343,6 +345,7 @@ export type Database = {
           background_style?: string | null
           chest_cm?: number | null
           created_at?: string
+          dark_mode?: boolean | null
           height_cm?: number | null
           hips_cm?: number | null
           id?: string
