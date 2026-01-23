@@ -237,6 +237,32 @@
     font-family: 'Outfit', sans-serif;
   }
 
+  /* Background style overrides */
+  [data-bg="soft-gray"] body,
+  [data-bg="soft-gray"].min-h-screen {
+    background-color: hsl(220 15% 96%);
+  }
+  [data-bg="cream"] body,
+  [data-bg="cream"].min-h-screen {
+    background-color: hsl(45 40% 96%);
+  }
+  [data-bg="light-blue"] body,
+  [data-bg="light-blue"].min-h-screen {
+    background-color: hsl(210 40% 96%);
+  }
+  [data-bg="mint"] body,
+  [data-bg="mint"].min-h-screen {
+    background-color: hsl(160 30% 95%);
+  }
+  [data-bg="lavender"] body,
+  [data-bg="lavender"].min-h-screen {
+    background-color: hsl(270 30% 96%);
+  }
+  [data-bg="peach"] body,
+  [data-bg="peach"].min-h-screen {
+    background-color: hsl(20 50% 96%);
+  }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Playfair Display', serif;
   }
