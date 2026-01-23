@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,6 +9,7 @@ import { Plus, Search, Shirt, Star, Database, Loader2 } from 'lucide-react';
 import ClothingCard from '@/components/wardrobe/ClothingCard';
 import ClothingForm from '@/components/wardrobe/ClothingForm';
 import CategoryFilter from '@/components/wardrobe/CategoryFilter';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -103,15 +104,16 @@ export default function Wardrobe() {
     
     setLoading(true);
     try {
+      // Fetch only needed fields for better performance
       const [clothesRes, categoriesRes] = await Promise.all([
         supabase
           .from('clothing_items')
-          .select('*')
+          .select('id, name, category_id, size, size_type, color, brand, notes, image_url, wearing_image_url, is_accessory, is_favorite, created_at')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false }),
         supabase
           .from('categories')
-          .select('*')
+          .select('id, name, name_es, is_top, is_bottom')
           .eq('user_id', user.id)
           .order('name'),
       ]);
@@ -131,14 +133,23 @@ export default function Wardrobe() {
     fetchData();
   }, [user]);
 
-  const filteredClothes = clothes.filter((item) => {
-    const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.color?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = !selectedCategory || item.category_id === selectedCategory;
-    const matchesTab = activeTab === 'all' || (activeTab === 'favorites' && item.is_favorite);
-    return matchesSearch && matchesCategory && matchesTab;
-  });
+  const filteredClothes = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    return clothes.filter((item) => {
+      const matchesSearch = item.name.toLowerCase().includes(query) ||
+        item.brand?.toLowerCase().includes(query) ||
+        item.color?.toLowerCase().includes(query);
+      const matchesCategory = !selectedCategory || item.category_id === selectedCategory;
+      const matchesTab = activeTab === 'all' || (activeTab === 'favorites' && item.is_favorite);
+      return matchesSearch && matchesCategory && matchesTab;
+    });
+  }, [clothes, searchQuery, selectedCategory, activeTab]);
+
+  // Memoize category lookup map for O(1) access in render
+  const categoryMap = useMemo(() => 
+    new Map(categories.map(c => [c.id, c])), 
+    [categories]
+  );
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('clothing_items').delete().eq('id', id);
@@ -179,46 +190,49 @@ export default function Wardrobe() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl font-semibold">{t('myWardrobe')}</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="font-display text-2xl sm:text-3xl font-semibold">{t('myWardrobe')}</h1>
+          <p className="text-muted-foreground text-sm sm:text-base mt-0.5 sm:mt-1">
             {clothes.length} {language === 'es' ? 'prendas' : 'items'}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setShowForm(true)} className="gap-2">
+          <Button onClick={() => setShowForm(true)} className="gap-2" size="sm">
             <Plus className="h-4 w-4" />
-            {t('addClothing')}
+            <span className="hidden xs:inline">{t('addClothing')}</span>
+            <span className="xs:hidden">Add</span>
           </Button>
           <Button 
             variant="outline" 
             onClick={handleSeedTestClothing} 
             disabled={seedingClothes}
             className="gap-2"
+            size="sm"
           >
             {seedingClothes ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Database className="h-4 w-4" />
             )}
-            {language === 'es' ? 'Añadir ropa de prueba' : 'Add test clothing'}
+            <span className="hidden sm:inline">{language === 'es' ? 'Añadir ropa de prueba' : 'Add test clothing'}</span>
+            <span className="sm:hidden">Test</span>
           </Button>
         </div>
       </div>
 
       {/* Search, Filter, and Tabs */}
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-4 sm:flex-row">
-          <div className="relative flex-1">
+      <div className="flex flex-col gap-3 sm:gap-4">
+        <div className="flex flex-col gap-3 sm:gap-4 sm:flex-row">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder={t('search')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-9 sm:h-10"
             />
           </div>
           <CategoryFilter
@@ -228,15 +242,17 @@ export default function Wardrobe() {
             language={language}
           />
         </div>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="all" className="gap-2">
-              <Shirt className="h-4 w-4" />
-              {t('allItems')}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="overflow-x-auto">
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="all" className="gap-1.5 text-xs sm:text-sm px-2.5 sm:px-3">
+              <Shirt className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">{t('allItems')}</span>
+              <span className="xs:hidden">All</span>
             </TabsTrigger>
-            <TabsTrigger value="favorites" className="gap-2">
-              <Star className="h-4 w-4" />
-              {t('favorites')}
+            <TabsTrigger value="favorites" className="gap-1.5 text-xs sm:text-sm px-2.5 sm:px-3">
+              <Star className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">{t('favorites')}</span>
+              <span className="xs:hidden">Fav</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -244,28 +260,34 @@ export default function Wardrobe() {
 
       {/* Grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-pulse text-muted-foreground">{t('loading')}</div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="space-y-2">
+              <Skeleton className="aspect-square w-full rounded-lg" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+            </div>
+          ))}
         </div>
       ) : filteredClothes.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-secondary">
-            <Shirt className="h-8 w-8 text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center py-12 sm:py-16 text-center px-4">
+          <div className="mb-4 flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-secondary">
+            <Shirt className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground" />
           </div>
-          <h3 className="font-display text-xl font-medium">{t('noClothes')}</h3>
-          <p className="text-muted-foreground mt-1">{t('addFirstItem')}</p>
-          <Button onClick={() => setShowForm(true)} className="mt-4 gap-2">
+          <h3 className="font-display text-lg sm:text-xl font-medium">{t('noClothes')}</h3>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">{t('addFirstItem')}</p>
+          <Button onClick={() => setShowForm(true)} className="mt-4 gap-2" size="sm">
             <Plus className="h-4 w-4" />
             {t('addClothing')}
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {filteredClothes.map((item) => (
             <ClothingCard
               key={item.id}
               item={item}
-              category={categories.find((c) => c.id === item.category_id)}
+              category={categoryMap.get(item.category_id || '')}
               language={language}
               onEdit={() => handleEdit(item)}
               onDelete={() => handleDelete(item.id)}
