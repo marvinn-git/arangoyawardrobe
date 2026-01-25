@@ -149,7 +149,7 @@ export default function CreatePostDialog({
 
         const { data: urlData } = await supabase.storage
           .from('clothing-images')
-          .createSignedUrl(filePath, 60 * 60 * 24 * 365);
+          .createSignedUrl(filePath, 60 * 60 * 24 * 30); // 30 days expiration
 
         imageUrl = urlData?.signedUrl || null;
       }
