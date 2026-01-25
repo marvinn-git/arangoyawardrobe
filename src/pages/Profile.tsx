@@ -133,7 +133,7 @@ export default function Profile() {
       const { error: uploadError } = await supabase.storage.from('clothing-images').upload(filePath, file, { upsert: true });
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = await supabase.storage.from('clothing-images').createSignedUrl(filePath, 60 * 60 * 24 * 365);
+      const { data: urlData } = await supabase.storage.from('clothing-images').createSignedUrl(filePath, 60 * 60 * 24 * 30); // 30 days expiration
 
       if (urlData?.signedUrl) {
         await supabase.from('profiles').update({ avatar_url: urlData.signedUrl }).eq('user_id', user.id);
