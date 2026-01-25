@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Search, Plus, TrendingUp, Clock, Sparkles, Heart, RefreshCw, Bookmark } from 'lucide-react';
 import InspirationPostCard from '@/components/inspiration/InspirationPostCard';
 import CreatePostDialog from '@/components/inspiration/CreatePostDialog';
+import AdCard from '@/components/inspiration/AdCard';
 
 interface Profile {
   username: string | null;
@@ -561,15 +562,22 @@ export default function Inspiration() {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {filteredPosts.map((post) => (
-                <InspirationPostCard
-                  key={post.id}
-                  post={post}
-                  onLike={() => handleLike(post.id, post.hasLiked || false)}
-                  onSave={() => handleSave(post.id, post.hasSaved || false)}
-                  currentUserId={user?.id}
-                />
-              ))}
+              {filteredPosts.flatMap((post, index) => {
+                const items = [
+                  <InspirationPostCard
+                    key={post.id}
+                    post={post}
+                    onLike={() => handleLike(post.id, post.hasLiked || false)}
+                    onSave={() => handleSave(post.id, post.hasSaved || false)}
+                    currentUserId={user?.id}
+                  />
+                ];
+                // Insert ad every 6 posts
+                if ((index + 1) % 6 === 0) {
+                  items.push(<AdCard key={`ad-${index}`} />);
+                }
+                return items;
+              })}
             </div>
           )}
         </TabsContent>
