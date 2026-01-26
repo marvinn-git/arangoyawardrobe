@@ -351,7 +351,7 @@ export default function Inspiration() {
     } finally {
       setLoading(false);
     }
-  }, [user, activeTab, language, toast, userStyleTags, savedPostIds]);
+  }, [user, activeTab, language, toast, userStyleTags]);
 
   useEffect(() => {
     fetchPosts();
@@ -446,7 +446,11 @@ export default function Inspiration() {
 
   const filteredPosts = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    return posts.filter(post => {
+    return posts.map(post => ({
+      ...post,
+      // Always use the latest savedPostIds state
+      hasSaved: savedPostIds.has(post.id),
+    })).filter(post => {
       // Filter by saved tab
       if (activeTab === 'saved' && !post.hasSaved) return false;
       
@@ -459,7 +463,7 @@ export default function Inspiration() {
         post.clothing_item?.name?.toLowerCase().includes(query)
       );
     });
-  }, [posts, searchQuery, activeTab]);
+  }, [posts, searchQuery, activeTab, savedPostIds]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
