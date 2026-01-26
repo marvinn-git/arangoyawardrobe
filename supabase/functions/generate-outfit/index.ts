@@ -6,12 +6,28 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Helper to format item concisely (saves memory)
 const formatItem = (item: any) => 
   `${item.name}${item.color ? ` (${item.color})` : ""} [${item.id}]`;
 
-// Limit array size to prevent memory issues
-const limitItems = (items: any[], max = 15) => items.slice(0, max);
+const limitItems = (items: any[], max = 12) => items.slice(0, max);
+
+// Weather-aware guidance
+const getWeatherGuidance = (weather: string): string => {
+  const w = weather.toLowerCase();
+  if (w.includes("cold") || w.includes("winter") || w.includes("freezing") || w.includes("snow")) {
+    return "MUST include: jacket/coat, layers. Consider: scarf, gloves, warm accessories. Avoid: shorts, tank tops, sandals.";
+  }
+  if (w.includes("cool") || w.includes("autumn") || w.includes("fall") || w.includes("chilly")) {
+    return "Include: light jacket or sweater for layering. Optional: scarf. Avoid: heavy winter coats.";
+  }
+  if (w.includes("hot") || w.includes("summer") || w.includes("warm") || w.includes("humid")) {
+    return "Prioritize: breathable fabrics, light colors. Avoid: jackets, scarves, heavy layers, boots.";
+  }
+  if (w.includes("rain") || w.includes("wet")) {
+    return "Include: water-resistant jacket if available. Avoid: suede shoes, delicate fabrics.";
+  }
+  return "";
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -21,10 +37,8 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Unauthorized" }), 
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -35,23 +49,18 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Unauthorized" }), 
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     let body: Record<string, unknown>;
     try {
       body = await req.json();
     } catch {
-      return new Response(
-        JSON.stringify({ error: "Invalid request body" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Invalid request body" }), 
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Input validation with limits
     const occasion = typeof body.occasion === "string" ? body.occasion.slice(0, 100) : "";
     const weather = typeof body.weather === "string" ? body.weather.slice(0, 50) : "";
     const mood = typeof body.mood === "string" ? body.mood.slice(0, 50) : "";
@@ -65,74 +74,57 @@ serve(async (req) => {
       ).slice(0, 50);
     }
 
-    // Fetch ONLY needed fields (no image_url to save memory)
+    // Fetch clothing with categories in one query
     const { data: clothingItems, error: clothingError } = await supabase
       .from("clothing_items")
       .select(`id, name, color, brand, category_id, categories (name, is_top, is_bottom)`)
       .eq("user_id", user.id)
-      .limit(100);
+      .limit(80);
 
     if (clothingError) throw clothingError;
 
     if (!clothingItems?.length) {
-      return new Response(
-        JSON.stringify({ error: "No clothing items found. Add some clothes first!" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "No clothing items found. Add some clothes first!" }), 
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const excludeSet = new Set(excludeItemIds);
     const availableItems = clothingItems.filter((item: any) => !excludeSet.has(item.id));
 
-    // Fetch style preferences (minimal data)
-    const { data: userTags } = await supabase
-      .from("user_style_tags")
-      .select("style_tags(name)")
-      .eq("user_id", user.id)
-      .limit(10);
-
-    const styleTags = userTags?.map((t: any) => t.style_tags?.name).filter(Boolean) || [];
-
-    // Categorize items
-    const categorize = (items: any[], filter: (item: any) => boolean) => 
-      items.filter(filter);
-
-    const allTops = categorize(availableItems, (i: any) => i.categories?.is_top);
-    const bottoms = categorize(availableItems, (i: any) => i.categories?.is_bottom);
+    // Categorize efficiently
+    const tops: any[] = [], bottoms: any[] = [], footwear: any[] = [], accessories: any[] = [];
     
-    const footwear = categorize(availableItems, (i: any) => {
-      const cat = i.categories?.name?.toLowerCase() || "";
-      return !i.categories?.is_top && !i.categories?.is_bottom && 
-        (cat.includes("shoe") || cat.includes("sneaker") || cat.includes("boot") || cat.includes("sandal"));
-    });
-    
-    const accessories = categorize(availableItems, (i: any) => {
-      const cat = i.categories?.name?.toLowerCase() || "";
-      return !i.categories?.is_top && !i.categories?.is_bottom && 
-        !cat.includes("shoe") && !cat.includes("sneaker") && !cat.includes("boot") && !cat.includes("sandal");
-    });
-
-    if (!allTops.length || !bottoms.length) {
-      return new Response(
-        JSON.stringify({ error: "You need at least one top and one bottom to generate an outfit" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    for (const item of availableItems) {
+      const cat = item.categories as any;
+      const catName = cat?.name?.toLowerCase() || "";
+      if (cat?.is_top) tops.push(item);
+      else if (cat?.is_bottom) bottoms.push(item);
+      else if (catName.includes("shoe") || catName.includes("sneaker") || catName.includes("boot") || catName.includes("sandal") || catName.includes("loafer")) {
+        footwear.push(item);
+      } else accessories.push(item);
     }
 
-    // Build COMPACT prompt
-    const prompt = `Create a complete outfit (4-10 pieces) with layering and accessories.
+    if (!tops.length || !bottoms.length) {
+      return new Response(JSON.stringify({ error: "Need at least one top and one bottom" }), 
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
-${occasion ? `Occasion: ${occasion}` : ""}${weather ? ` | Weather: ${weather}` : ""}${mood ? ` | Vibe: ${mood}` : ""}
-${extraDetails ? `Notes: ${extraDetails}` : ""}
-${styleTags.length ? `Style: ${styleTags.join(", ")}` : ""}
+    // Get weather guidance
+    const weatherGuidance = weather ? getWeatherGuidance(weather) : "";
+
+    // Build concise prompt
+    const prompt = `Create outfit (4-8 pieces) for: ${occasion || "everyday"}
+${weather ? `Weather: ${weather}` : ""}${mood ? ` | Vibe: ${mood}` : ""}
+${extraDetails ? `User notes: ${extraDetails}` : ""}
+${weatherGuidance ? `\n⚠️ WEATHER RULES: ${weatherGuidance}` : ""}
 
 WARDROBE:
-TOPS: ${limitItems(allTops).map(formatItem).join("; ")}
+TOPS: ${limitItems(tops).map(formatItem).join("; ")}
 BOTTOMS: ${limitItems(bottoms).map(formatItem).join("; ")}
-${footwear.length ? `FOOTWEAR: ${limitItems(footwear).map(formatItem).join("; ")}` : ""}
-${accessories.length ? `ACCESSORIES: ${limitItems(accessories).map(formatItem).join("; ")}` : ""}
+${footwear.length ? `SHOES: ${limitItems(footwear, 8).map(formatItem).join("; ")}` : ""}
+${accessories.length ? `ACCESSORIES: ${limitItems(accessories, 10).map(formatItem).join("; ")}` : ""}
 
-Layer appropriately. Add jewelry/accessories generously!`;
+Select items that work together. Follow weather rules strictly!`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
@@ -146,21 +138,26 @@ Layer appropriately. Add jewelry/accessories generously!`;
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-lite",
         messages: [
-          { role: "system", content: "Expert fashion stylist. Create cohesive 4-10 piece outfits with layers and accessories." },
+          { 
+            role: "system", 
+            content: `You are an expert fashion stylist. Create cohesive outfits using ONLY provided item IDs. 
+CRITICAL: Follow weather rules exactly - if it's cold, include jackets/layers; if hot, avoid heavy items.
+Be practical and stylish. Include accessories when appropriate.` 
+          },
           { role: "user", content: prompt },
         ],
         tools: [{
           type: "function",
           function: {
             name: "suggest_outfit",
-            description: "Suggest outfit with item IDs",
+            description: "Suggest outfit with exact item IDs from wardrobe",
             parameters: {
               type: "object",
               properties: {
-                outfit_name: { type: "string" },
-                item_ids: { type: "array", items: { type: "string" }, description: "All selected item IDs" },
-                styling_tips: { type: "string" },
-                explanation: { type: "string" },
+                outfit_name: { type: "string", description: "Creative outfit name" },
+                item_ids: { type: "array", items: { type: "string" }, description: "Selected item IDs" },
+                styling_tips: { type: "string", description: "Brief styling advice" },
+                explanation: { type: "string", description: "Why these items work together" },
               },
               required: ["outfit_name", "item_ids", "styling_tips", "explanation"],
             },
@@ -183,7 +180,7 @@ Layer appropriately. Add jewelry/accessories generously!`;
     const suggestion = JSON.parse(toolCall.function.arguments);
     const selectedIds = new Set(suggestion.item_ids || []);
 
-    // Fetch full details only for selected items (with images now)
+    // Fetch full details only for selected items
     const { data: selectedItems } = await supabase
       .from("clothing_items")
       .select(`id, name, color, brand, image_url, category_id, categories (name, is_top, is_bottom)`)
