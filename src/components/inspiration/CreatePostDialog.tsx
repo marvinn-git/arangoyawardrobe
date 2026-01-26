@@ -23,11 +23,19 @@ interface CreatePostDialogProps {
   onSuccess: () => void;
 }
 
+interface OutfitItem {
+  clothing_item_id: string;
+  clothing_items: {
+    image_url: string;
+  };
+}
+
 interface Outfit {
   id: string;
   name: string;
   photo_url: string | null;
   is_public: boolean;
+  outfit_items: OutfitItem[];
 }
 
 interface ClothingItem {
@@ -73,7 +81,13 @@ export default function CreatePostDialog({
       const [outfitsRes, clothingRes] = await Promise.all([
         supabase
           .from('outfits')
-          .select('id, name, photo_url, is_public')
+          .select(`
+            id, name, photo_url, is_public,
+            outfit_items (
+              clothing_item_id,
+              clothing_items ( image_url )
+            )
+          `)
           .eq('user_id', user.id)
           .order('created_at', { ascending: false }),
         supabase
@@ -83,7 +97,7 @@ export default function CreatePostDialog({
           .order('created_at', { ascending: false }),
       ]);
 
-      if (outfitsRes.data) setOutfits(outfitsRes.data);
+      if (outfitsRes.data) setOutfits(outfitsRes.data as Outfit[]);
       if (clothingRes.data) setClothingItems(clothingRes.data);
     } catch (error) {
       console.error('Error fetching content:', error);
@@ -302,6 +316,19 @@ export default function CreatePostDialog({
                             alt={outfit.name}
                             className="h-full w-full object-cover"
                           />
+                        ) : outfit.outfit_items && outfit.outfit_items.length > 0 ? (
+                          <div className="h-full w-full grid grid-cols-2 gap-0.5 p-0.5 bg-secondary">
+                            {outfit.outfit_items.slice(0, 4).map((item, idx) => (
+                              <div key={idx} className="aspect-square overflow-hidden bg-muted">
+                                <img
+                                  src={item.clothing_items?.image_url}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                />
+                              </div>
+                            ))}
+                          </div>
                         ) : (
                           <div className="h-full w-full bg-secondary flex items-center justify-center">
                             <LayoutGrid className="h-6 w-6 text-muted-foreground" />
